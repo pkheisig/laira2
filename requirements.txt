@@ -1,0 +1,10 @@
+python-dotenv
+google-cloud-aiplatform>=1.38.1  # Check for a recent version supporting Gemini and Gecko
+chromadb>=0.4.24 # Or a recent stable version
+customtkinter>=5.2.0 # For the GUI
+langchain>=0.1.0 # For potential use in document loading/chunking
+langchain-community>=0.0.20 # ADDED: Contains document loaders etc.
+langchain-google-vertexai>=0.1.0 # Specific Langchain integration
+# Add specific document loaders if needed, e.g.:
+# pypdf2
+pypdf2>=3.0.0 # Added for PDF document loading 
