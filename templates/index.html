@@ -223,8 +223,24 @@
                 <div id="project-list-area" class="project-grid">
                     <div id="home-placeholder" class="placeholder-box" style="grid-column: 1 / -1; margin-top: 40px; text-align: center;">
                         <i class="fas fa-book-open" style="font-size: 3rem; margin-bottom: 16px;"></i>
-                        <p>Your notebooks will appear here.<br>Click 'Create new' to get started.</p>
+                        <p>Your projects will appear here.<br>Click 'Create new' to get started.</p>
                     </div>
+                    <!-- Hidden Project Card Template -->
+                    <template id="project-card-template">
+                        <div class="project-card">
+                            <div class="card-header">
+                                <div class="card-icon"><i class="fas fa-book"></i></div>
+                                <button class="card-options-btn" title="Options"><i class="fas fa-ellipsis-v"></i></button>
+                            </div>
+                            <div class="card-body">
+                                <h3 class="card-title">Project Title</h3>
+                                <p class="card-meta">Last modified: <span class="card-mod-date">Date</span></p>
+                            </div>
+                            <!-- <div class="card-footer">
+                                <span class="card-shared-icon" title="Shared"><i class="fas fa-users"></i></span>
+                            </div> -->
+                        </div>
+                    </template>
                 </div>
             </div>
         </main>

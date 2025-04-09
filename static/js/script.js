@@ -62,19 +62,100 @@ function setupHomeViewListeners() {
     const listViewBtn = document.getElementById('view-list-btn');
     const sortDropdown = document.getElementById('sort-dropdown');
     const projectListArea = document.getElementById('project-list-area');
+    const homePlaceholder = document.getElementById('home-placeholder');
+    const projectCardTemplate = document.getElementById('project-card-template');
+    const storageKey = 'lairaProjects'; // Key for localStorage
 
     if (createNewBtn) {
         createNewBtn.addEventListener('click', () => {
             console.log("Home page 'Create new' clicked");
-            // Generate default name - User requested removing timestamp
-            const defaultName = "New_Project"; 
-            // const uniqueId = `${defaultName}_${Date.now()}`; // Original timestamped version
-            const uniqueId = defaultName; // Using fixed name as requested
-            // Note: This might lead to collisions if multiple "New_Project" exist.
-            // Requires backend/user to handle renaming promptly.
+
+            // 1. Load existing projects from localStorage
+            let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+            // 2. Generate a somewhat unique ID for offline testing
+            let counter = projects.length + 1;
+            let uniqueId = `New_Project_${counter}`;
+            // Basic collision check (increase counter if ID exists)
+            while (projects.some(p => p.id === uniqueId)) {
+                counter++;
+                uniqueId = `New_Project_${counter}`;
+            }
+            const defaultTitle = `New Project ${counter}`;
+
+            // 3. Create new project data object
+            const now = new Date();
+            const newProjectData = {
+                id: uniqueId,
+                title: defaultTitle, 
+                modifiedDate: now.toLocaleDateString() // Use current date
+            };
+
+            // 4. Add to projects array and save back to localStorage
+            projects.push(newProjectData);
+            localStorage.setItem(storageKey, JSON.stringify(projects));
+
+            // 5. Optimistic UI update: Add card immediately
+            renderProjectCard(newProjectData);
+
+            // 6. Navigate to the new project page
             window.location.href = `/project/${uniqueId}`;
         });
     } else { console.warn("Home Create New button not found"); }
+
+    // NEW: Function to render a single project card
+    function renderProjectCard(projectData) {
+        if (!projectListArea || !projectCardTemplate) {
+            console.error("Project list area or template not found.");
+            return;
+        }
+        
+        const cardClone = projectCardTemplate.content.cloneNode(true);
+        const cardElement = cardClone.querySelector('.project-card');
+        const titleElement = cardClone.querySelector('.card-title');
+        const dateElement = cardClone.querySelector('.card-mod-date');
+
+        if (cardElement) cardElement.dataset.projectId = projectData.id; // Store ID for navigation
+        if (titleElement) titleElement.textContent = projectData.title;
+        if (dateElement) dateElement.textContent = projectData.modifiedDate;
+
+        // Handle click to navigate to project
+        if (cardElement) {
+            cardElement.addEventListener('click', (e) => {
+                // Prevent navigation if options button is clicked (future)
+                if (e.target.closest('.card-options-btn')) return;
+                window.location.href = `/project/${projectData.id}`;
+            });
+        }
+
+        projectListArea.appendChild(cardClone);
+
+        // Hide placeholder if it exists and cards are now present
+        if (homePlaceholder && projectListArea.querySelectorAll('.project-card').length > 0) {
+            homePlaceholder.style.display = 'none';
+        }
+    }
+
+    // MODIFIED: Function to fetch and render projects from localStorage
+    function fetchAndRenderProjects() {
+        console.log("Fetching projects from localStorage...");
+        
+        // Load projects from localStorage
+        const projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+        // Clear existing cards before rendering
+        projectListArea.innerHTML = ''; // Clear previous cards
+        // Ensure placeholder is initially visible before potentially adding cards
+        if (homePlaceholder) homePlaceholder.style.display = 'block'; 
+
+        if (projects.length > 0) {
+             projects.forEach(renderProjectCard);
+             // The renderProjectCard function will hide the placeholder
+        } else {
+            // Ensure placeholder remains visible if no projects exist
+             if (homePlaceholder) homePlaceholder.style.display = 'block';
+        }
+    }
 
     function setActiveView(viewType) {
          // ... basic view toggling logic (add later) ...
@@ -102,8 +183,8 @@ function setupHomeViewListeners() {
         });
     }
     
-    // TODO: Fetch and render project list initially
-    // fetchAndRenderProjects(); 
+    // Fetch and render project list initially
+    fetchAndRenderProjects(); 
     setActiveView('grid'); // Default view
 }
 
