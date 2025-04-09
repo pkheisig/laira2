@@ -87,13 +87,27 @@
                 </div>
                 <div class="panel-content">
                     <button class="action-button add-note-btn"><i class="fas fa-plus"></i> Add note</button>
-                    <div id="notes-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center;">
-                         <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                        <p>Saved notes will appear here.</p>
+                    
+                    <!-- Note List View (Initially Visible) -->
+                    <div id="notes-list-view">
+                        <div id="notes-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center;">
+                             <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Saved notes will appear here.</p>
+                        </div>
+                         <ul id="notes-list" style="display: none;">
+                            <!-- JS populates this -->
+                        </ul>
                     </div>
-                     <ul id="notes-list" style="display: none;">
-                        <!-- JS populates this -->
-                    </ul>
+
+                    <!-- Note Editor View (Initially Hidden) -->
+                    <div id="note-editor-view" style="display: none; height: 100%; display: flex; flex-direction: column;">
+                        <h3 id="note-editor-title" contenteditable="true" class="note-title-editable">New Note</h3>
+                        <textarea id="note-editor-body" placeholder="Start writing your note..." class="note-body-textarea"></textarea>
+                        <div class="note-editor-footer">
+                            <button id="save-note-btn" class="action-button primary-btn" title="Save Note"><i class="fas fa-save"></i></button>
+                            <button id="delete-note-btn" class="action-button secondary-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
                 </div>
             </aside>
         </main>
@@ -157,6 +171,22 @@
                  </div>
              </div>
          </div>
+
+        <!-- NEW: Note View Pop-up Modal -->
+        <div id="view-note-modal" class="modal-overlay note-view-modal">
+            <div class="modal-content note-view-content">
+                <div class="modal-header">
+                    <h2 id="view-note-title" contenteditable="true">Note Title</h2>
+                    <button class="modal-close-btn" title="Close">&times;</button>
+                </div>
+                <div class="modal-body" id="view-note-body-container">
+                    <textarea id="view-note-body-textarea" class="note-body-textarea view-mode"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-view-note-btn" class="action-button primary-btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
 
     {% else %}
         <!-- === Home Page === -->

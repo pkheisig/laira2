@@ -152,6 +152,26 @@ function setupProjectViewListeners(projectId) {
     const notesPanelContent = document.querySelector('.notes-panel .panel-content');
     const notesListPlaceholder = document.getElementById('notes-list-placeholder'); // Added
 
+    // NEW: Notes Editor Elements
+    const notesListView = document.getElementById('notes-list-view');
+    const noteEditorView = document.getElementById('note-editor-view');
+    const noteEditorTitle = document.getElementById('note-editor-title');
+    const noteEditorBody = document.getElementById('note-editor-body');
+    const saveNoteBtn = document.getElementById('save-note-btn');
+    const deleteNoteBtn = document.getElementById('delete-note-btn');
+
+    // NEW: Note View Modal Elements
+    const viewNoteModal = document.getElementById('view-note-modal');
+    const viewNoteTitle = document.getElementById('view-note-title');
+    const viewNoteBody = document.getElementById('view-note-body');
+    const viewNoteBodyTextarea = document.getElementById('view-note-body-textarea');
+    const saveViewNoteBtn = document.getElementById('save-view-note-btn');
+
+    // Simple in-memory store for notes (temporary)
+    let notesData = {}; // Stores { id: { title: '', body: '' } }
+    let nextNoteId = 1; // Simple ID generator
+    let currentlyViewingNoteId = null;
+
     // --- Modal Visibility Functions ---
     function showModal(modalElement) {
         modalElement?.classList.add('active');
@@ -511,49 +531,147 @@ function setupProjectViewListeners(projectId) {
         }
     });
 
-    // --- Notes Panel Logic ---
-    function createNotePopup() {
-        // Prevent creating multiple popups
-        if (document.getElementById('note-popup-textarea')) return;
+    // --- Notes Panel Logic (NEW Editor View Logic) ---
 
-        const textarea = document.createElement('textarea');
-        textarea.id = 'note-popup-textarea';
-        textarea.placeholder = 'Type your note...';
-        textarea.rows = 4;
-        textarea.classList.add('note-popup-textarea'); // Add class for styling
-
-        if (notesPanelContent) {
-            notesPanelContent.appendChild(textarea);
-            textarea.focus();
-
-            // Use 'blur' event to save/close
-            textarea.addEventListener('blur', handleNotePopupBlur, { once: true });
-
-        } else {
-            console.error("Notes panel content area not found.");
-        }
+    function showNoteEditor() {
+        if (!notesListView || !noteEditorView || !noteEditorTitle || !noteEditorBody) return;
+        // Reset editor for a new note
+        noteEditorTitle.textContent = 'New Note';
+        noteEditorBody.value = '';
+        // Hide list, show editor
+        notesListView.style.display = 'none';
+        noteEditorView.style.display = 'flex'; // Use flex as per CSS
+        noteEditorTitle.focus(); // Focus on title first
     }
 
-    function handleNotePopupBlur(event) {
-        const textarea = event.target;
-        const noteText = textarea.value.trim();
-
-        if (noteText) {
-            addNoteToList(noteText);
-            // TODO: Send note to backend for saving
-            console.log("Note saved (placeholder):", noteText);
-        }
-
-        textarea.remove(); // Remove the textarea itself
+    function showNotesList() {
+        if (!notesListView || !noteEditorView) return;
+        // Hide editor, show list
+        noteEditorView.style.display = 'none';
+        notesListView.style.display = 'block';
+        checkNotesList(); // Make sure placeholder visibility is correct
     }
 
-    function addNoteToList(text) {
+    function saveNote() {
+        if (!noteEditorTitle || !noteEditorBody) return;
+        const title = noteEditorTitle.textContent.trim();
+        const body = noteEditorBody.value.trim();
+
+        if (!title && !body) {
+            // If both are empty, treat as cancel/delete
+            console.log("Note empty, discarding.");
+            showNotesList(); // Just go back to list view
+            return; 
+        }
+
+        // Use title or placeholder if title is empty
+        const finalTitle = title || "Untitled Note"; 
+
+        // TODO: Replace placeholder with actual save logic (backend call)
+        console.log(`Saving Note (Placeholder):
+Title: ${finalTitle}
+Body: ${body}`);
+        addNoteToList(finalTitle, body); // Add to UI list (pass body too)
+        
+        showNotesList(); // Switch back to list view after save
+    }
+
+    function deleteNote() {
+        if (!confirm("Are you sure you want to delete this note? This cannot be undone.")) {
+            return;
+        }
+        // TODO: Add logic to delete note from backend if it was already saved
+        console.log("Deleting Note (Placeholder)");
+        showNotesList(); // Switch back to list view after delete/cancel
+    }
+
+    // MODIFIED: Creates the new list item structure
+    function addNoteToList(title, body) {
         if (!notesList) return;
+
+        const noteId = `note-${nextNoteId++}`; // Generate a unique ID
+        notesData[noteId] = { title, body }; // Store data
+
         const listItem = document.createElement('li');
-        // Basic structure, can be enhanced later (e.g., with delete button)
-        listItem.textContent = text;
+        listItem.classList.add('note-list-item');
+        listItem.dataset.noteId = noteId;
+
+        listItem.innerHTML = `
+            <span class="note-icon"><i class="fas fa-sticky-note"></i></span>
+            <span class="note-item-title"></span>
+            <button class="note-delete-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
+        `;
+
+        // Set title safely to prevent XSS
+        const titleSpan = listItem.querySelector('.note-item-title');
+        if (titleSpan) titleSpan.textContent = title;
+        
         notesList.appendChild(listItem);
         checkNotesList(); // Update placeholder visibility
+    }
+
+    // NEW: Function to delete a note from the list and data store
+    function deleteNoteFromList(noteId) {
+        const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
+        if (listItem) {
+            listItem.remove();
+            delete notesData[noteId]; // Remove from data store
+            console.log(`Deleted note ${noteId} (frontend)`);
+            // TODO: Add backend call to delete permanently
+            checkNotesList();
+        } else {
+            console.warn(`Could not find list item for note ID: ${noteId}`);
+        }
+    }
+
+    // NEW: Function to show the note view modal (MODIFIED)
+    function showNoteViewModal(noteId) {
+        const note = notesData[noteId];
+        if (!note || !viewNoteModal || !viewNoteTitle || !viewNoteBodyTextarea) {
+            console.error("Could not find note data or modal elements for ID:", noteId);
+            return;
+        }
+
+        currentlyViewingNoteId = noteId;
+
+        viewNoteTitle.textContent = note.title;
+        viewNoteBodyTextarea.value = note.body;
+
+        showModal(viewNoteModal);
+    }
+
+    // NEW: Function to save changes from the note view modal
+    function saveNoteChanges() {
+        if (!currentlyViewingNoteId || !viewNoteTitle || !viewNoteBodyTextarea) {
+            console.error("No note ID or modal elements found to save changes.");
+            return;
+        }
+
+        const noteId = currentlyViewingNoteId;
+        const newTitle = viewNoteTitle.textContent.trim();
+        const newBody = viewNoteBodyTextarea.value.trim();
+
+        // Update data store
+        if (notesData[noteId]) {
+            notesData[noteId].title = newTitle;
+            notesData[noteId].body = newBody;
+            console.log(`Updated note ${noteId} (frontend):`, notesData[noteId]);
+
+            // Update list item display
+            const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
+            const titleSpan = listItem?.querySelector('.note-item-title');
+            if (titleSpan) {
+                titleSpan.textContent = newTitle || "Untitled Note";
+            }
+
+            // TODO: Add backend call to save changes
+
+        } else {
+            console.error("Could not find note data to update for ID:", noteId);
+        }
+
+        hideModal(viewNoteModal);
+        currentlyViewingNoteId = null;
     }
 
     function checkNotesList() {
@@ -561,17 +679,56 @@ function setupProjectViewListeners(projectId) {
         if (notesListPlaceholder) {
             notesListPlaceholder.style.display = hasNotes ? 'none' : 'block';
         }
+         if (notesList) {
+            notesList.style.display = hasNotes ? 'block' : 'none';
+         }
     }
 
-    // Event listener for the Add Note button
+    // Event listener for the Add Note button (Changed)
     if (addNoteBtn) {
-        addNoteBtn.addEventListener('click', createNotePopup);
+        addNoteBtn.addEventListener('click', showNoteEditor);
     } else {
         console.warn("Add Note button not found.");
     }
 
+    // Event listeners for the Note Editor buttons
+    if (saveNoteBtn) {
+        saveNoteBtn.addEventListener('click', saveNote);
+    } else {
+        console.warn("Save Note button not found.");
+    }
+    
+    if (deleteNoteBtn) {
+        deleteNoteBtn.addEventListener('click', deleteNote);
+    } else {
+        console.warn("Delete Note button not found.");
+    }
+
+    // NEW: Event delegation for clicks within the notes list
+    if (notesList) {
+        notesList.addEventListener('click', (event) => {
+            const target = event.target;
+            const deleteButton = target.closest('.note-delete-btn');
+            const listItem = target.closest('.note-list-item');
+
+            if (deleteButton && listItem) {
+                const noteId = listItem.dataset.noteId;
+                if (noteId && confirm(`Are you sure you want to delete this note?`)) {
+                    deleteNoteFromList(noteId);
+                }
+            } else if (listItem) {
+                // Clicked on the item itself (not the delete button)
+                const noteId = listItem.dataset.noteId;
+                if (noteId) {
+                    showNoteViewModal(noteId);
+                }
+            }
+        });
+    }
+
     // Initial check for notes placeholder
     checkNotesList();
+    showNotesList(); // Ensure editor is hidden and list is shown initially
 
     // Initial check
     checkSourceList(); 
