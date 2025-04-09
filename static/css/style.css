@@ -1587,3 +1587,211 @@ body:not(.dark-theme) #view-note-body-textarea {
 body.dark-theme .note-list-item:hover {
     background-color: var(--hover-bg-dark);
 }
+
+/* NEW: Project List Styles (Home Page) */
+.project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0; /* Remove gap for list view */
+}
+
+.project-list-header {
+    display: flex;
+    padding: 10px 16px; /* Match item padding */
+    border-bottom: 1px solid var(--border-color-light);
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--secondary-text-light);
+    background-color: var(--panel-bg-light); /* Subtle background */
+}
+body.dark-theme .project-list-header {
+    border-bottom-color: var(--border-color-dark);
+    color: var(--secondary-text-dark);
+    background-color: var(--panel-bg-dark);
+}
+
+.header-col {
+    display: flex;
+    align-items: center;
+}
+
+/* Column Widths (Adjust as needed) */
+.title-col { flex: 3; min-width: 200px; }
+.sources-col { flex: 1; min-width: 100px; text-align: center; justify-content: center; }
+.modified-col { flex: 1; min-width: 120px; text-align: right; justify-content: flex-end; }
+.actions-col { flex: 0 0 60px; text-align: right; justify-content: flex-end; } /* Fixed width for actions */
+
+.project-list-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color-light);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative; /* For options menu positioning */
+}
+body.dark-theme .project-list-item {
+    border-bottom-color: var(--border-color-dark);
+}
+.project-list-item:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .project-list-item:hover {
+    background-color: var(--hover-bg-dark);
+}
+.project-list-item:last-child {
+    border-bottom: none;
+}
+
+.list-item-col {
+    display: flex;
+    align-items: center;
+    font-size: 0.95em;
+}
+
+.list-item-col.title-col .item-icon {
+    margin-right: 12px;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .list-item-col.title-col .item-icon {
+    color: var(--secondary-text-dark);
+}
+
+.list-item-col.title-col .item-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-item-col.sources-col .item-sources,
+.list-item-col.modified-col .item-mod-date {
+    font-size: 0.9em;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .list-item-col.sources-col .item-sources,
+body.dark-theme .list-item-col.modified-col .item-mod-date {
+    color: var(--secondary-text-dark);
+}
+
+.list-options-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    font-size: 0.9rem;
+    padding: 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden; /* Initially hidden */
+    opacity: 0;
+    transition: background-color 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+body.dark-theme .list-options-btn {
+    color: var(--secondary-text-dark);
+}
+.project-list-item:hover .list-options-btn {
+     visibility: visible;
+     opacity: 1;
+}
+.list-options-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .list-options-btn:hover {
+     background-color: var(--hover-bg-dark);
+     color: var(--text-color-dark);
+}
+
+/* List Options Menu (similar to card, adjust position/styling as needed) */
+.list-options-menu {
+    position: absolute;
+    top: 35px; /* Position below the button */
+    right: 16px;
+    background-color: var(--panel-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    padding: 5px 0;
+    min-width: 140px;
+}
+body.dark-theme .list-options-menu {
+    background-color: var(--panel-bg-dark);
+    border-color: var(--border-color-dark);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.list-options-menu.active {
+    display: flex;
+}
+
+.list-menu-button {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    color: var(--text-color-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.list-menu-button:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .list-menu-button {
+    color: var(--text-color-dark);
+}
+body.dark-theme .list-menu-button:hover {
+    background-color: var(--hover-bg-dark);
+}
+
+/* List Item Inline Rename Styles */
+.project-list-item.editing .item-title {
+    /* Allow editing styles */
+     border: 1px solid var(--accent-color-light);
+     padding: 2px 4px;
+     margin: -3px -5px; /* Adjust for border/padding */
+     border-radius: 3px;
+     background-color: var(--input-bg-light);
+}
+body.dark-theme .project-list-item.editing .item-title {
+      border-color: var(--accent-color-dark);
+      background-color: var(--input-bg-dark);
+}
+
+/* Inline buttons for list view (added by JS) */
+.list-inline-btn {
+    background: none;
+    border: none;
+    font-size: 0.9em;
+    padding: 4px;
+    margin-left: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--secondary-text-light);
+    display: inline-flex; /* Use flex for alignment */
+    align-items: center;
+    justify-content: center;
+    width: 24px; /* Fixed size */
+    height: 24px;
+    transition: background-color 0.2s;
+}
+.list-inline-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .list-inline-btn {
+    color: var(--secondary-text-dark);
+}
+body.dark-theme .list-inline-btn:hover {
+    background-color: var(--hover-bg-dark);
+    color: var(--text-color-dark);
+}

@@ -62,81 +62,64 @@ function setupHomeViewListeners() {
     const listViewBtn = document.getElementById('view-list-btn');
     const sortDropdown = document.getElementById('sort-dropdown');
     const projectListArea = document.getElementById('project-list-area');
+    const projectListHeader = projectListArea?.querySelector('.project-list-header'); // NEW: List header
     const homePlaceholder = document.getElementById('home-placeholder');
     const projectCardTemplate = document.getElementById('project-card-template');
+    const projectListItemTemplate = document.getElementById('project-list-item-template'); // NEW: List item template
     const storageKey = 'lairaProjects'; // Key for localStorage
+    let currentView = 'grid'; // Track current view ('grid' or 'list')
+    let currentSort = 'recent'; // Track current sort ('recent' or 'alpha')
 
     if (createNewBtn) {
         createNewBtn.addEventListener('click', () => {
             console.log("Home page 'Create new' clicked");
-
-            // 1. Load existing projects from localStorage
             let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
-
-            // 2. Generate a somewhat unique ID for offline testing
             let counter = projects.length + 1;
             let uniqueId = `New_Project_${counter}`;
-            // Basic collision check (increase counter if ID exists)
             while (projects.some(p => p.id === uniqueId)) {
                 counter++;
                 uniqueId = `New_Project_${counter}`;
             }
             const defaultTitle = `New Project ${counter}`;
-
-            // 3. Create new project data object
             const now = new Date();
             const newProjectData = {
                 id: uniqueId,
-                title: defaultTitle, 
-                modifiedDate: now.toLocaleDateString() // Use current date
+                title: defaultTitle,
+                // Store full ISO string for reliable sorting, format later for display
+                modifiedDate: now.toISOString(), 
+                sources: [] // NEW: Initialize sources array
             };
-
-            // 4. Add to projects array and save back to localStorage
             projects.push(newProjectData);
             localStorage.setItem(storageKey, JSON.stringify(projects));
-
-            // 5. Optimistic UI update: Add card immediately
-            renderProjectCard(newProjectData);
-
-            // 6. Navigate to the new project page
+            // Don't add card immediately, fetchAndRenderProjects will handle it
+            // navigate to the new project page
             window.location.href = `/project/${uniqueId}`;
         });
     } else { console.warn("Home Create New button not found"); }
 
-    // NEW: Function to delete a project (defined inside setupHomeViewListeners)
-    function deleteProject(projectId, cardElement) {
-        // Ensure storageKey is accessible
-        if (!confirm(`Are you sure you want to delete project \"${projectId}\"? This action cannot be undone.`)) {
+    // MODIFIED: deleteProject - re-renders list after deletion
+    function deleteProject(projectId) {
+        const projectToDelete = JSON.parse(localStorage.getItem(storageKey) || '[]').find(p => p.id === projectId);
+        if (!projectToDelete) {
+             console.warn(`Project with ID ${projectId} not found for deletion prompt.`);
+             return; // Exit if project data not found
+        }
+
+        if (!confirm(`Are you sure you want to delete project "${projectToDelete.title}"? This action cannot be undone.`)) {
             return;
         }
         console.log(`Attempting to delete project ${projectId}`);
         try {
-            // 1. Load projects from localStorage
             let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
-            console.log("Projects before deletion:", projects);
-
-            // 2. Filter out the project
             const initialLength = projects.length;
             const updatedProjects = projects.filter(p => p.id !== projectId);
             const removed = initialLength > updatedProjects.length;
-            console.log("Projects after filtering:", updatedProjects);
 
             if (removed) {
-                // 3. Save the updated list back
                 localStorage.setItem(storageKey, JSON.stringify(updatedProjects));
-                console.log(`Saved updated projects list to localStorage.`);
-
-                // 4. Remove the card from the DOM
-                cardElement.remove();
-                console.log(`Project ${projectId} card removed from UI.`);
-
-                // 5. Check if placeholder should be shown
-                const remainingCards = projectListArea.querySelectorAll('.project-card').length;
-                 console.log("Remaining cards:", remainingCards);
-                if (remainingCards === 0 && homePlaceholder) {
-                    homePlaceholder.style.display = 'block';
-                     console.log("Showing placeholder.");
-                }
+                console.log(`Deleted project ${projectId}. Saved updated projects list.`);
+                // Re-render the list with the current view and sort
+                fetchAndRenderProjects(); 
             } else {
                 console.warn(`Project with ID ${projectId} not found in localStorage array for deletion.`);
             }
@@ -146,10 +129,172 @@ function setupHomeViewListeners() {
         }
     }
 
-    // MODIFIED: Function to render a single project card
+    // NEW: Function to render a single project list item
+    function renderProjectListItem(projectData) {
+        if (!projectListArea || !projectListItemTemplate) {
+            console.error("Project list area or list item template not found.");
+            return;
+        }
+
+        const itemClone = projectListItemTemplate.content.cloneNode(true);
+        const itemElement = itemClone.querySelector('.project-list-item');
+        const titleElement = itemClone.querySelector('.item-title');
+        const sourcesElement = itemClone.querySelector('.item-sources');
+        const dateElement = itemClone.querySelector('.item-mod-date');
+        const optionsBtn = itemClone.querySelector('.list-options-btn');
+        const optionsMenu = itemClone.querySelector('.list-options-menu');
+        const renameBtn = itemClone.querySelector('.rename-list-item-btn');
+        const deleteBtn = itemClone.querySelector('.delete-list-item-btn');
+        const titleColumn = itemClone.querySelector('.list-item-col.title-col'); // For inline buttons
+
+        if (!itemElement || !titleElement || !sourcesElement || !dateElement || !optionsBtn || !optionsMenu || !renameBtn || !deleteBtn || !titleColumn) {
+            console.error("Missing list item elements");
+            return;
+        }
+
+        itemElement.dataset.projectId = projectData.id; // Store ID
+        titleElement.textContent = projectData.title;
+        // Format date for display (e.g., "Apr 8, 2025")
+        const modDate = new Date(projectData.modifiedDate);
+        dateElement.textContent = modDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); 
+        // Display source count
+        const sourceCount = projectData.sources?.length || 0;
+        sourcesElement.textContent = `${sourceCount} Source${sourceCount !== 1 ? 's' : ''}`;
+
+
+        // Inline rename buttons (create once, reuse)
+        const saveListItemRenameBtn = document.createElement('button');
+        saveListItemRenameBtn.innerHTML = '<i class="fas fa-check"></i>';
+        saveListItemRenameBtn.className = 'list-inline-btn save-list-item-rename-btn';
+        saveListItemRenameBtn.title = 'Save Name';
+        saveListItemRenameBtn.style.display = 'none';
+
+        const cancelListItemRenameBtn = document.createElement('button');
+        cancelListItemRenameBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelListItemRenameBtn.className = 'list-inline-btn cancel-list-item-rename-btn';
+        cancelListItemRenameBtn.title = 'Cancel Rename';
+        cancelListItemRenameBtn.style.display = 'none';
+
+        // Handle click to navigate to project (ignore clicks on button/menu/editing title)
+        itemElement.addEventListener('click', (e) => {
+            if (e.target.closest('.list-options-btn') || e.target.closest('.list-options-menu') || e.target.closest('.list-inline-btn') || itemElement.classList.contains('editing')) {
+                return; // Don't navigate if clicking controls
+            }
+            window.location.href = `/project/${projectData.id}`;
+        });
+
+        // Handle Options Button Click
+        optionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent item click navigation
+            // Close other open menus first
+            document.querySelectorAll('.list-options-menu.active, .card-options-menu.active').forEach(menu => {
+                if (menu !== optionsMenu) menu.classList.remove('active');
+            });
+            // Toggle current menu
+            optionsMenu.classList.toggle('active');
+        });
+
+        // Handle Rename Button Click
+        renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log(`List Rename action for project ${projectData.id}`);
+            optionsMenu.classList.remove('active'); // Close menu
+
+            // Start editing
+            itemElement.classList.add('editing');
+            titleElement.contentEditable = 'true';
+            titleElement.dataset.originalTitle = titleElement.textContent; // Store original
+            titleElement.focus();
+            document.execCommand('selectAll', false, null); // Select text
+
+            // Show inline save/cancel buttons
+            titleColumn.appendChild(saveListItemRenameBtn);
+            titleColumn.appendChild(cancelListItemRenameBtn);
+            saveListItemRenameBtn.style.display = 'inline-flex';
+            cancelListItemRenameBtn.style.display = 'inline-flex';
+            optionsBtn.style.display = 'none'; // Hide options button while editing
+        });
+
+         // Handle Save Rename Click
+        saveListItemRenameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newTitle = titleElement.textContent.trim();
+            const originalTitle = titleElement.dataset.originalTitle;
+            const projectIdToRename = itemElement.dataset.projectId;
+
+            titleElement.contentEditable = 'false';
+            itemElement.classList.remove('editing');
+            saveListItemRenameBtn.style.display = 'none';
+            cancelListItemRenameBtn.style.display = 'none';
+            optionsBtn.style.display = ''; // Restore options button
+
+            if (newTitle && newTitle !== originalTitle) {
+                titleElement.textContent = newTitle; // Optimistic UI
+                try {
+                    let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                    const projectIndex = projects.findIndex(p => p.id === projectIdToRename);
+
+                    if (projectIndex !== -1) {
+                        projects[projectIndex].title = newTitle;
+                         // Update modified date on rename
+                        projects[projectIndex].modifiedDate = new Date().toISOString();
+                        localStorage.setItem(storageKey, JSON.stringify(projects));
+                        console.log(`Renamed project ${projectIdToRename} to "${newTitle}". Saved.`);
+                         // Re-fetch and render to update date and potentially sort order
+                        fetchAndRenderProjects();
+                    } else {
+                        console.error(`Could not find project ${projectIdToRename} to rename.`);
+                        titleElement.textContent = originalTitle; // Revert UI
+                    }
+                } catch (error) {
+                     console.error("Error saving rename:", error);
+                     titleElement.textContent = originalTitle; // Revert UI on error
+                     alert("Error saving rename.");
+                }
+            } else {
+                 titleElement.textContent = originalTitle; // Revert if empty or unchanged
+            }
+             // Clean up buttons from DOM
+            saveListItemRenameBtn.remove();
+            cancelListItemRenameBtn.remove();
+        });
+
+        // Handle Cancel Rename Click
+        cancelListItemRenameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            titleElement.textContent = titleElement.dataset.originalTitle; // Revert
+            titleElement.contentEditable = 'false';
+            itemElement.classList.remove('editing');
+            saveListItemRenameBtn.style.display = 'none';
+            cancelListItemRenameBtn.style.display = 'none';
+            optionsBtn.style.display = ''; // Restore options button
+             // Clean up buttons from DOM
+            saveListItemRenameBtn.remove();
+            cancelListItemRenameBtn.remove();
+        });
+
+
+        // Handle Delete Button Click
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectIdToDelete = itemElement.dataset.projectId;
+            console.log(`List Delete button clicked for project: ${projectIdToDelete}`);
+            if (projectIdToDelete) {
+                 deleteProject(projectIdToDelete); 
+            } else {
+                console.error("Missing projectId for list deletion.");
+            }
+            optionsMenu.classList.remove('active'); // Close menu
+        });
+
+        projectListArea.appendChild(itemClone);
+    }
+
+
+    // MODIFIED: Function to render a single project card (mostly unchanged, added deleteProject call)
     function renderProjectCard(projectData) {
         if (!projectListArea || !projectCardTemplate) {
-            console.error("Project list area or template not found.");
+            console.error("Project list area or card template not found.");
             return;
         }
         
@@ -161,8 +306,7 @@ function setupHomeViewListeners() {
         const optionsMenu = cardClone.querySelector('.card-options-menu');
         const renameBtn = cardClone.querySelector('.rename-card-btn');
         const deleteBtn = cardClone.querySelector('.delete-card-btn');
-        // NEW: Rename controls (initially hidden, could be added dynamically too)
-        const cardBody = cardClone.querySelector('.card-body'); // Need parent for buttons
+        const cardBody = cardClone.querySelector('.card-body'); 
         const saveCardRenameBtn = document.createElement('button');
         saveCardRenameBtn.innerHTML = '<i class="fas fa-check"></i>';
         saveCardRenameBtn.className = 'card-inline-btn save-card-rename-btn';
@@ -179,50 +323,49 @@ function setupHomeViewListeners() {
             return;
         }
 
-        cardElement.dataset.projectId = projectData.id; // Store ID for navigation & actions
+        cardElement.dataset.projectId = projectData.id; 
         titleElement.textContent = projectData.title;
-        dateElement.textContent = projectData.modifiedDate;
+        // Format date for display
+        const modDate = new Date(projectData.modifiedDate);
+        dateElement.textContent = modDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-        // Handle click to navigate to project (ignore clicks on button/menu)
+        // Handle click to navigate
         cardElement.addEventListener('click', (e) => {
-            if (e.target.closest('.card-options-btn') || e.target.closest('.card-options-menu')) {
-                return; // Don't navigate if clicking options button or menu itself
+            if (e.target.closest('.card-options-btn') || e.target.closest('.card-options-menu') || e.target.closest('.card-inline-btn') || cardElement.classList.contains('editing')) {
+                return; 
             }
             window.location.href = `/project/${projectData.id}`;
         });
 
         // Handle Options Button Click
         optionsBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent card click navigation
-            // Close other open menus first
-            document.querySelectorAll('.card-options-menu.active').forEach(menu => {
-                if (menu !== optionsMenu) menu.classList.remove('active');
+            e.stopPropagation(); 
+            document.querySelectorAll('.card-options-menu.active, .list-options-menu.active').forEach(menu => {
+                 if (menu !== optionsMenu) menu.classList.remove('active');
             });
-            // Toggle current menu
             optionsMenu.classList.toggle('active');
         });
 
-        // MODIFIED: Handle Rename Button Click 
+        // Handle Rename Button Click 
         renameBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            console.log(`Rename action triggered for project ${projectData.id}`);
-            optionsMenu.classList.remove('active'); // Close menu
+            console.log(`Card Rename action for project ${projectData.id}`);
+            optionsMenu.classList.remove('active'); 
             
-            // Start editing
-            cardElement.classList.add('editing'); // Add class to card for styling/state
+            cardElement.classList.add('editing'); 
             titleElement.contentEditable = 'true';
-            titleElement.dataset.originalTitle = titleElement.textContent; // Store original
+            titleElement.dataset.originalTitle = titleElement.textContent; 
             titleElement.focus();
-            document.execCommand('selectAll', false, null); // Select text
+            document.execCommand('selectAll', false, null); 
 
-            // Show inline save/cancel buttons
             cardBody.appendChild(saveCardRenameBtn);
             cardBody.appendChild(cancelCardRenameBtn);
             saveCardRenameBtn.style.display = 'inline-flex';
             cancelCardRenameBtn.style.display = 'inline-flex';
+            optionsBtn.style.display = 'none'; // Hide options btn
         });
 
-        // MODIFIED: Handle Save Rename Click - Ensure storageKey access & logging
+        // Handle Save Rename Click
         saveCardRenameBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const newTitle = titleElement.textContent.trim();
@@ -233,68 +376,63 @@ function setupHomeViewListeners() {
             cardElement.classList.remove('editing');
             saveCardRenameBtn.style.display = 'none';
             cancelCardRenameBtn.style.display = 'none';
+            optionsBtn.style.display = ''; // Restore options btn
 
             if (newTitle && newTitle !== originalTitle) {
                 titleElement.textContent = newTitle; // Optimistic UI
                 try {
                     let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
-                     console.log(`Renaming: Projects before update for ${projectIdToRename}:`, projects);
                     const projectIndex = projects.findIndex(p => p.id === projectIdToRename);
 
                     if (projectIndex !== -1) {
                         projects[projectIndex].title = newTitle;
-                        projects[projectIndex].modifiedDate = new Date().toLocaleDateString();
+                         // Update modified date on rename
+                        projects[projectIndex].modifiedDate = new Date().toISOString();
                         localStorage.setItem(storageKey, JSON.stringify(projects));
-                        if (dateElement) dateElement.textContent = projects[projectIndex].modifiedDate;
-                        console.log(`Renamed project ${projectIdToRename} to "${newTitle}". Saved to localStorage.`);
+                        console.log(`Renamed project ${projectIdToRename} to "${newTitle}". Saved.`);
+                         // Re-fetch and render to update date and potentially sort order
+                        fetchAndRenderProjects();
                     } else {
                         console.error(`Could not find project ${projectIdToRename} to rename.`);
                         titleElement.textContent = originalTitle; // Revert UI
                     }
                 } catch (error) {
-                     console.error("Error saving rename to localStorage:", error);
+                     console.error("Error saving rename:", error);
                      titleElement.textContent = originalTitle; // Revert UI on error
                      alert("Error saving rename.");
                 }
             } else {
-                titleElement.textContent = originalTitle; // Revert if empty/unchanged
+                 titleElement.textContent = originalTitle; // Revert if empty or unchanged
             }
-            delete titleElement.dataset.originalTitle;
+             // Clean up buttons from DOM
+            saveCardRenameBtn.remove();
+            cancelCardRenameBtn.remove();
         });
 
-        // MODIFIED: Handle Cancel Rename Click
-        cancelCardRenameBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            titleElement.textContent = titleElement.dataset.originalTitle;
-            titleElement.contentEditable = 'false';
-            cardElement.classList.remove('editing');
-            saveCardRenameBtn.style.display = 'none';
-            cancelCardRenameBtn.style.display = 'none';
-             delete titleElement.dataset.originalTitle;
-        });
+         // Handle Cancel Rename Click
+         cancelCardRenameBtn.addEventListener('click', (e) => {
+             e.stopPropagation();
+             titleElement.textContent = titleElement.dataset.originalTitle; // Revert
+             titleElement.contentEditable = 'false';
+             cardElement.classList.remove('editing');
+             saveCardRenameBtn.style.display = 'none';
+             cancelCardRenameBtn.style.display = 'none';
+             optionsBtn.style.display = ''; // Restore options button
+             // Clean up buttons from DOM
+             saveCardRenameBtn.remove();
+             cancelCardRenameBtn.remove();
+         });
 
-        // Optional: Handle Enter/Escape during card title editing
-        titleElement.addEventListener('keydown', (e) => {
-            if (titleElement.contentEditable === 'true') {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    saveCardRenameBtn.click();
-                } else if (e.key === 'Escape') {
-                    cancelCardRenameBtn.click();
-                }
-            }
-        });
 
-        // MODIFIED: Handle Delete Button Click - Ensure correct parameters
+        // Handle Delete Button Click
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const projectIdToDelete = cardElement.dataset.projectId;
-            const cardToRemove = cardElement; // Get reference to the card itself
-            console.log(`Delete button clicked for project: ${projectIdToDelete}, card element:`, cardToRemove);
-            if (projectIdToDelete && cardToRemove) {
-                 deleteProject(projectIdToDelete, cardToRemove); // Pass the specific card element
+            console.log(`Card Delete button clicked for project: ${projectIdToDelete}`);
+            if (projectIdToDelete) {
+                 deleteProject(projectIdToDelete); 
             } else {
-                console.error("Missing projectId or cardElement for deletion.");
+                console.error("Missing projectId for card deletion.");
             }
             optionsMenu.classList.remove('active'); // Close menu
         });
@@ -302,61 +440,138 @@ function setupHomeViewListeners() {
         projectListArea.appendChild(cardClone);
 
         // Hide placeholder if it exists and cards are now present
-        if (homePlaceholder && projectListArea.querySelectorAll('.project-card').length > 0) {
+        if (homePlaceholder && projectListArea.children.length > 2) { // >2 because of header and template(s)
             homePlaceholder.style.display = 'none';
         }
     }
 
-    // MODIFIED: Function to fetch and render projects from localStorage
+    // MODIFIED: Function to fetch, sort, and render projects
     function fetchAndRenderProjects() {
-        console.log("Fetching projects from localStorage...");
+        console.log(`Fetching projects (Sort: ${currentSort}, View: ${currentView})`);
         
-        // Load projects from localStorage
-        const projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
-        // Clear existing cards before rendering
-        projectListArea.innerHTML = ''; // Clear previous cards
-        // Ensure placeholder is initially visible before potentially adding cards
-        if (homePlaceholder) homePlaceholder.style.display = 'block'; 
+        // --- Sorting ---
+        projects.sort((a, b) => {
+            if (currentSort === 'recent') {
+                // Sort by date descending (most recent first)
+                const dateA = new Date(a.modifiedDate);
+                const dateB = new Date(b.modifiedDate);
+                if (dateB !== dateA) {
+                    return dateB - dateA;
+                }
+            }
+            // Secondary sort: Alphabetical by title (for both 'recent' and 'alpha')
+            return a.title.localeCompare(b.title);
+        });
+
+        // --- Rendering ---
+        // Clear existing items (keep header if list view)
+        // Select only project cards and list items to remove
+        projectListArea.querySelectorAll('.project-card, .project-list-item').forEach(el => el.remove());
+
+        // Ensure placeholder is shown initially if needed
+        if (projects.length === 0 && homePlaceholder) {
+             homePlaceholder.style.display = 'block';
+             if (projectListHeader && currentView === 'list') projectListHeader.style.display = 'none'; // Hide header if empty
+        } else if (homePlaceholder) {
+             homePlaceholder.style.display = 'none';
+             if (projectListHeader && currentView === 'list') projectListHeader.style.display = 'flex'; // Show header if list view and not empty
+        }
+
 
         if (projects.length > 0) {
-             projects.forEach(renderProjectCard);
-             // The renderProjectCard function will hide the placeholder
-        } else {
-            // Ensure placeholder remains visible if no projects exist
-             if (homePlaceholder) homePlaceholder.style.display = 'block';
+             const renderFunction = currentView === 'list' ? renderProjectListItem : renderProjectCard;
+             projects.forEach(renderFunction);
         }
+
+        // Add listener to close menus when clicking outside
+        document.addEventListener('click', closeAllOptionMenus, true); // Use capture phase
     }
 
-    function setActiveView(viewType) {
-         // ... basic view toggling logic (add later) ...
-         console.log("Set view:", viewType);
-         if(viewType === 'grid') {
-            gridViewBtn?.classList.add('active');
-            listViewBtn?.classList.remove('active');
-            projectListArea?.classList.remove('project-list');
-            projectListArea?.classList.add('project-grid');
-         } else {
-            gridViewBtn?.classList.remove('active');
-            listViewBtn?.classList.add('active');
-            projectListArea?.classList.remove('project-grid');
-            projectListArea?.classList.add('project-list');
+    // NEW: Function to close all open option menus
+    function closeAllOptionMenus(event) {
+        // Check if the click was outside *any* options button or menu
+         if (!event.target.closest('.card-options-btn') && !event.target.closest('.card-options-menu') && !event.target.closest('.list-options-btn') && !event.target.closest('.list-options-menu')) {
+             document.querySelectorAll('.card-options-menu.active, .list-options-menu.active').forEach(menu => {
+                 menu.classList.remove('active');
+             });
+              // Remove this specific listener after it runs once (or keep it if needed globally)
+             // document.removeEventListener('click', closeAllOptionMenus, true); 
          }
     }
 
+
+    // MODIFIED: Function to set the active view
+    function setActiveView(viewType) {
+         if (currentView === viewType) return; // No change needed
+         currentView = viewType;
+         console.log("Set view:", viewType);
+
+         if (!projectListArea || !projectListHeader || !gridViewBtn || !listViewBtn) {
+            console.error("Missing elements for view switching");
+            return;
+         }
+
+         if(viewType === 'grid') {
+            gridViewBtn.classList.add('active');
+            listViewBtn.classList.remove('active');
+            projectListArea.classList.remove('project-list');
+            projectListArea.classList.add('project-grid');
+            projectListHeader.style.display = 'none'; // Hide list header
+         } else { // list view
+            gridViewBtn.classList.remove('active');
+            listViewBtn.classList.add('active');
+            projectListArea.classList.remove('project-grid');
+            projectListArea.classList.add('project-list');
+             // Show header only if there are projects
+            const hasProjects = projectListArea.querySelectorAll('.project-list-item, .project-card').length > 0; // Check if items will be rendered
+            projectListHeader.style.display = hasProjects ? 'flex' : 'none'; 
+         }
+         // Re-render the content in the new view format
+         fetchAndRenderProjects(); 
+    }
+
+    // Add View Button Listeners
     if (gridViewBtn) gridViewBtn.addEventListener('click', () => setActiveView('grid'));
     if (listViewBtn) listViewBtn.addEventListener('click', () => setActiveView('list'));
 
+    // Add Sort Dropdown Listener
     if (sortDropdown) {
         sortDropdown.addEventListener('change', (e) => {
-            console.log(`Sort criteria changed to: ${e.target.value}`);
-            // TODO: Fetch/render sorted list
+            const newSort = e.target.value;
+            if (currentSort !== newSort) {
+                currentSort = newSort;
+                console.log(`Sort criteria changed to: ${currentSort}`);
+                fetchAndRenderProjects(); // Re-fetch and render with new sort
+            }
         });
     }
     
-    // Fetch and render project list initially
-    fetchAndRenderProjects(); 
-    setActiveView('grid'); // Default view
+    // Initial setup
+    const savedView = localStorage.getItem('projectViewType') || 'grid'; // Optional: remember view preference
+    const savedSort = localStorage.getItem('projectSortType') || 'recent'; // Optional: remember sort
+    currentView = savedView;
+    currentSort = savedSort;
+    if(sortDropdown) sortDropdown.value = currentSort;
+
+    // Set initial class based on saved/default view BEFORE first render
+    if (currentView === 'list') {
+         if (projectListArea) projectListArea.classList.add('project-list');
+         if (listViewBtn) listViewBtn.classList.add('active');
+         if (gridViewBtn) gridViewBtn.classList.remove('active');
+    } else {
+         if (projectListArea) projectListArea.classList.add('project-grid');
+         if (gridViewBtn) gridViewBtn.classList.add('active');
+         if (listViewBtn) listViewBtn.classList.remove('active');
+    }
+    if (projectListHeader) projectListHeader.style.display = 'none'; // Ensure header hidden initially
+
+    fetchAndRenderProjects(); // Fetch and render project list initially using currentSort and currentView
+
+    // Add global listener to close menus when clicking outside
+    // Moved inside fetchAndRenderProjects to ensure it's added after items exist
+
 }
 
 function setupProjectViewListeners(projectId) {

@@ -220,7 +220,15 @@
                          </select>
                      </div>
                 </div>
-                <div id="project-list-area" class="project-grid">
+                <div id="project-list-area" class="project-grid"> <!-- Initially grid -->
+                    <!-- Header Row for List View (initially hidden) -->
+                    <div class="project-list-header" style="display: none;">
+                        <div class="header-col title-col">Title</div>
+                        <div class="header-col sources-col">Sources</div>
+                        <div class="header-col modified-col">Last Modified</div>
+                        <div class="header-col actions-col"></div> <!-- Placeholder for actions alignment -->
+                    </div>
+
                     <div id="home-placeholder" class="placeholder-box" style="grid-column: 1 / -1; margin-top: 40px; text-align: center;">
                         <i class="fas fa-book-open" style="font-size: 3rem; margin-bottom: 16px;"></i>
                         <p>Your projects will appear here.<br>Click 'Create new' to get started.</p>
@@ -246,6 +254,30 @@
                             </div> -->
                         </div>
                     </template>
+
+                    <!-- NEW: Hidden Project List Item Template -->
+                     <template id="project-list-item-template">
+                         <div class="project-list-item">
+                             <div class="list-item-col title-col">
+                                 <span class="item-icon"><i class="fas fa-book"></i></span>
+                                 <span class="item-title">Project Title</span>
+                             </div>
+                             <div class="list-item-col sources-col">
+                                 <span class="item-sources">0 Sources</span> <!-- Placeholder -->
+                             </div>
+                             <div class="list-item-col modified-col">
+                                 <span class="item-mod-date">Date</span>
+                             </div>
+                             <div class="list-item-col actions-col">
+                                 <button class="list-options-btn" title="Options"><i class="fas fa-ellipsis-v"></i></button>
+                                 <div class="list-options-menu">
+                                     <button class="list-menu-button rename-list-item-btn"><i class="fas fa-pencil-alt"></i> Rename</button>
+                                     <button class="list-menu-button delete-list-item-btn"><i class="fas fa-trash-alt"></i> Delete</button>
+                                 </div>
+                                 <!-- Inline rename controls (added dynamically by JS) -->
+                             </div>
+                         </div>
+                     </template>
                 </div>
             </div>
         </main>
