@@ -7,4 +7,8 @@ langchain-community>=0.0.20 # ADDED: Contains document loaders etc.
 langchain-google-vertexai>=0.1.0 # Specific Langchain integration
 # Add specific document loaders if needed, e.g.:
 # pypdf2
-pypdf2>=3.0.0 # Added for PDF document loading 
+pypdf>=3.0.0 # Added for PDF document loading
+pdfplumber>=0.10.3  # For enhanced PDF text extraction
+Pillow>=10.0.0  # For image processing
+PyMuPDF>=1.25.0  # For better PDF image extraction
+Flask 

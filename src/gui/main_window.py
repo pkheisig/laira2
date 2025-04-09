@@ -6,6 +6,12 @@ import logging
 import time # For simulation
 import sys # For sys.exit in main
 import json # Added for settings persistence
+import pdfplumber  # For better PDF parsing
+import re
+import io
+from PIL import Image as PILImage
+import base64
+import fitz  # PyMuPDF
 
 # --- Core Processing Imports ---
 try:
@@ -16,7 +22,7 @@ try:
     from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
     from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader # Added PyPDFLoader
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from vertexai.generative_models import GenerativeModel, Part, GenerationConfig # Added GenerativeModel
+    from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Image
     from .settings_dialog import SettingsDialog  # Import the settings dialog
 except ImportError as e:
      logging.error(f"Critical libraries missing: {e}. Please install requirements.txt.")
@@ -49,13 +55,192 @@ DEFAULT_SETTINGS = {
     'top_p': 0.95,
     'top_k': 40,
     # Database
-    'default_db_name': 'literature_embeddings.db',
-    'collection_name': 'literature_embeddings',
+    'default_db_name': 'literature_embeddings',  # Removed .db extension
+    'collection_name': 'laira_embed',
     'chunk_size': 1000,
     'chunk_overlap': 100,
     'embedding_batch_size': 20,
     'search_results_count': 5
 }
+
+class PDFDocumentLoader:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.generative_model = GenerativeModel("gemini-pro-vision")
+
+    def load(self):
+        documents = []
+        try:
+            # Open PDF with PyMuPDF
+            with fitz.open(self.file_path) as pdf:
+                for page_num, page in enumerate(pdf, 1):
+                    # Extract text with better formatting
+                    text = page.get_text()
+                    
+                    # Extract images using PyMuPDF's image extraction
+                    image_data = []
+                    image_list = page.get_images()
+                    
+                    for img_idx, img in enumerate(image_list):
+                        try:
+                            xref = img[0]  # Get the image reference
+                            base_image = pdf.extract_image(xref)
+                            
+                            if base_image:
+                                # Get the raw image data
+                                image_bytes = base_image["image"]
+                                # Get the image extension (format)
+                                image_ext = base_image["ext"]
+                                
+                                # Convert to PIL Image for processing
+                                image = PILImage.open(io.BytesIO(image_bytes))
+                                
+                                # Convert CMYK to RGB if necessary
+                                if image.mode in ('CMYK', 'P', 'RGBA'):
+                                    image = image.convert('RGB')
+                                
+                                # Save to bytes for Gemini
+                                img_byte_arr = io.BytesIO()
+                                image.save(img_byte_arr, format='JPEG', quality=95)
+                                img_byte_arr = img_byte_arr.getvalue()
+                                
+                                # Create Gemini image part and analyze
+                                image_part = Image.from_bytes(img_byte_arr)
+                                
+                                # Analyze with Gemini
+                                prompt = """Analyze this scientific figure/image in detail. Focus on:
+1. Type of visualization (graph, diagram, microscopy image, etc.)
+2. Key elements and data shown
+3. Main findings or patterns visible
+4. Technical details (if applicable)
+5. Relationship to scientific concepts
+
+Provide a concise but thorough description that captures the scientific significance."""
+
+                                response = self.generative_model.generate_content(
+                                    [prompt, image_part],
+                                    generation_config=GenerationConfig(
+                                        temperature=0.2,
+                                        max_output_tokens=1024,
+                                    )
+                                )
+                                
+                                image_analysis = f"[FIGURE {img_idx + 1} ANALYSIS]: {response.text}"
+                                image_data.append(image_analysis)
+                                
+                        except Exception as img_err:
+                            logging.warning(f"Error processing image {img_idx} on page {page_num}: {img_err}")
+                            continue
+                    
+                    # Process text into sections
+                    lines = text.split('\n')
+                    processed_lines = []
+                    current_section = ""
+                    
+                    for line in lines:
+                        # Identify potential headers (uppercase, short lines)
+                        if line.isupper() and len(line.split()) <= 7:
+                            current_section = line.strip()
+                            processed_lines.append(f"\n### {current_section} ###\n")
+                        else:
+                            # Remove excessive whitespace but preserve paragraph breaks
+                            cleaned_line = ' '.join(line.split())
+                            if cleaned_line:
+                                processed_lines.append(cleaned_line)
+                    
+                    # Join text content with proper spacing
+                    processed_text = '\n\n'.join(processed_lines)
+                    
+                    # If we have image analyses, append them to the text
+                    if image_data:
+                        image_descriptions = "\n\n### FIGURES AND VISUALIZATIONS ###\n" + "\n\n".join(image_data)
+                        processed_text += "\n\n" + image_descriptions
+                    
+                    # Create document with rich metadata
+                    from langchain.schema import Document
+                    doc = Document(
+                        page_content=processed_text,
+                        metadata={
+                            'source': self.file_path,
+                            'page': page_num,
+                            'total_pages': len(pdf),
+                            'section': current_section,
+                            'has_images': bool(image_data),
+                            'image_count': len(image_data)
+                        }
+                    )
+                    documents.append(doc)
+                
+        except Exception as e:
+            raise Exception(f"Error processing PDF {self.file_path}: {str(e)}")
+        
+        return documents
+
+class EnhancedTextSplitter:
+    def __init__(self, chunk_size=1000, chunk_overlap=200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+    
+    def split_documents(self, documents):
+        chunks = []
+        for doc in documents:
+            # Split text into semantic units (paragraphs)
+            paragraphs = re.split(r'\n\s*\n', doc.page_content)
+            
+            current_chunk = []
+            current_size = 0
+            
+            for para in paragraphs:
+                para = para.strip()
+                if not para:
+                    continue
+                    
+                # If this paragraph would exceed chunk size, save current chunk and start new
+                if current_size + len(para) > self.chunk_size and current_chunk:
+                    # Create chunk with context
+                    chunk_text = '\n\n'.join(current_chunk)
+                    chunks.append(self._create_chunk(chunk_text, doc))
+                    
+                    # Start new chunk with overlap
+                    overlap_size = 0
+                    current_chunk = []
+                    for prev_para in reversed(current_chunk):
+                        if overlap_size + len(prev_para) > self.chunk_overlap:
+                            break
+                        current_chunk.insert(0, prev_para)
+                        overlap_size += len(prev_para)
+                    
+                    current_size = sum(len(p) for p in current_chunk)
+                
+                current_chunk.append(para)
+                current_size += len(para)
+            
+            # Don't forget the last chunk
+            if current_chunk:
+                chunk_text = '\n\n'.join(current_chunk)
+                chunks.append(self._create_chunk(chunk_text, doc))
+        
+        return chunks
+    
+    def _create_chunk(self, text, original_doc):
+        from langchain.schema import Document
+        
+        # Calculate rough position in document
+        start_index = original_doc.page_content.find(text[:100])  # Use first 100 chars to locate
+        
+        # Enhance metadata
+        metadata = original_doc.metadata.copy()
+        metadata['chunk_start_index'] = start_index
+        metadata['chunk_length'] = len(text)
+        
+        # Add context about position in document
+        if 'page' in metadata and 'total_pages' in metadata:
+            metadata['position'] = f"Page {metadata['page']} of {metadata['total_pages']}"
+        
+        return Document(
+            page_content=text,
+            metadata=metadata
+        )
 
 class App(ctk.CTk):
     def __init__(self, config, *args, **kwargs):
@@ -136,19 +321,22 @@ class App(ctk.CTk):
         # --- Action Buttons Frame ---
         action_frame = ctk.CTkFrame(self)
         action_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
-        action_frame.grid_columnconfigure((0, 1, 2, 3), weight=1) 
+        action_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1) 
 
-        self.embed_button = ctk.CTkButton(action_frame, text="Embed Documents", command=self._start_embedding_dialog)
+        self.embed_button = ctk.CTkButton(action_frame, text="Create Searchable DB", command=self._start_embedding_dialog)
         self.embed_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
+        self.direct_analysis_button = ctk.CTkButton(action_frame, text="Direct PDF Analysis", command=self._start_direct_analysis)
+        self.direct_analysis_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+
         self.load_db_button = ctk.CTkButton(action_frame, text="Load Database", command=self._load_database)
-        self.load_db_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.load_db_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
         self.stop_button = ctk.CTkButton(action_frame, text="Stop Process", command=self._request_stop, state="disabled")
-        self.stop_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
+        self.stop_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
         
         self.clear_button = ctk.CTkButton(action_frame, text="Clear Query/Results", command=self._clear_fields)
-        self.clear_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+        self.clear_button.grid(row=0, column=4, padx=10, pady=10, sticky="ew")
 
         # --- Query Frame ---
         query_frame = ctk.CTkFrame(self)
@@ -202,42 +390,190 @@ class App(ctk.CTk):
         """Open file dialog to select a ChromaDB database file"""
         db_file = filedialog.askopenfilename(
             title="Select Database File",
-            filetypes=[("Database Files (*.db, *.sqlite3)", "*.db *.sqlite3"), ("All Files", "*")],
+            filetypes=[("Database Files (*.db)", "*.db"), ("All Files", "*")],
             initialdir=os.path.dirname(self.current_db_file) if self.current_db_file else os.getcwd()
         )
         
         if db_file:
-            # Check if it's a valid ChromaDB file
-            db_dir = os.path.dirname(db_file)
-            if not os.path.exists(os.path.join(db_dir, "chroma.sqlite3")):
-                self.log_status(f"Warning: Selected file may not be a valid ChromaDB database.", "WARN")
-            
-            self.current_db_file = db_file
-            self._update_db_status()
-            self.log_status(f"Loaded database from: {db_file}")
+            try:
+                # Read the marker file to get the ChromaDB directory
+                with open(db_file, 'r') as f:
+                    lines = f.readlines()
+                    chroma_dir = lines[0].split(': ')[1].strip()
+                    collection_name = lines[1].split(': ')[1].strip()
+                
+                # Verify the ChromaDB directory exists
+                if not os.path.exists(chroma_dir):
+                    self.log_status(f"Error: ChromaDB directory not found: {chroma_dir}", "ERROR")
+                    self._update_results("Database files not found. The database may have been moved or deleted.")
+                    return
+                
+                # Update settings with the collection name from the marker file
+                self.settings['collection_name'] = collection_name
+                self._save_settings()
+                
+                self.current_db_file = db_file
+                self._update_db_status()
+                self.log_status(f"Loaded database from: {db_file}")
+            except Exception as e:
+                self.log_status(f"Error loading database: {e}", "ERROR")
+                logging.error("Database loading error", exc_info=True)
     
     def _start_embedding_dialog(self):
         """Open dialog to confirm embedding and select output location"""
         input_dir = self.settings.get('input_dir', '')
-        if not input_dir or not os.path.isdir(input_dir):
-            self.log_status("Error: Please set input directory in Settings first.", "ERROR")
+        
+        # Add detailed input directory validation
+        if not input_dir:
+            self.log_status("Error: Input directory not set. Please set it in Settings first.", "ERROR")
+            return
+            
+        if not os.path.exists(input_dir):
+            self.log_status(f"Error: Input directory does not exist: {input_dir}", "ERROR")
+            return
+            
+        if not os.path.isdir(input_dir):
+            self.log_status(f"Error: Path is not a directory: {input_dir}", "ERROR")
+            return
+            
+        # Log directory contents
+        try:
+            self.log_status(f"Checking input directory: {input_dir}")
+            files = os.listdir(input_dir)
+            pdf_files = [f for f in files if f.lower().endswith('.pdf')]
+            self.log_status(f"Found {len(pdf_files)} PDF files in directory: {', '.join(pdf_files)}")
+        except Exception as dir_err:
+            self.log_status(f"Error reading directory contents: {str(dir_err)}", "ERROR")
             return
             
         # Ask for save location
+        default_name = self.settings.get('default_db_name', 'literature_embeddings')
+        # Remove any existing .db extensions from the default name
+        default_name = default_name.replace('.db', '')
+        
         save_file = filedialog.asksaveasfilename(
             title="Save Embedded Database As",
             defaultextension=".db",
             filetypes=[("Database Files", "*.db"), ("All Files", "*.*")],
-            initialfile=self.settings.get('default_db_name', 'literature_embeddings.db')
+            initialfile=f"{default_name}"  # Don't add .db here, let defaultextension handle it
         )
         
         if save_file:
-            # Create parent directory if it doesn't exist
-            save_dir = os.path.dirname(save_file)
-            os.makedirs(save_dir, exist_ok=True)
+            # Create output directory if it doesn't exist
+            output_dir = os.path.dirname(save_file)
+            if output_dir:  # Only create if a directory was specified
+                os.makedirs(output_dir, exist_ok=True)
             
-            # Start embedding process
-            self._start_thread(self._run_embedding, (input_dir, save_file), "Embedding Process")
+            # Start embedding in a separate thread
+            self.current_db_file = save_file
+            self._save_settings()  # Save the current database file
+            threading.Thread(target=self._run_embedding, args=(input_dir, save_file), daemon=True).start()
+
+    def _start_direct_analysis(self):
+        """Handle direct PDF analysis using Gemini's capabilities"""
+        input_dir = self.settings.get('input_dir', '')
+        
+        if not input_dir:
+            self.log_status("Error: Input directory not set. Please set it in Settings first.", "ERROR")
+            return
+            
+        if not os.path.exists(input_dir):
+            self.log_status(f"Error: Input directory does not exist: {input_dir}", "ERROR")
+            return
+            
+        if not os.path.isdir(input_dir):
+            self.log_status(f"Error: Path is not a directory: {input_dir}", "ERROR")
+            return
+
+        # Log directory contents
+        try:
+            self.log_status(f"Checking input directory: {input_dir}")
+            files = os.listdir(input_dir)
+            pdf_files = [f for f in files if f.lower().endswith('.pdf')]
+            if not pdf_files:
+                self.log_status("No PDF files found in the directory.", "ERROR")
+                return
+            self.log_status(f"Found {len(pdf_files)} PDF files: {', '.join(pdf_files)}")
+        except Exception as dir_err:
+            self.log_status(f"Error reading directory contents: {str(dir_err)}", "ERROR")
+            return
+
+        # Start the direct analysis process
+        threading.Thread(target=self._run_direct_analysis, args=(input_dir,), daemon=True).start()
+
+    def _run_direct_analysis(self, input_path):
+        """Process PDFs directly with Gemini without embedding"""
+        try:
+            self.log_status("Starting direct PDF analysis...")
+            self._set_ui_state(processing=True)
+
+            # Initialize Gemini
+            try:
+                gen_model_name = self.settings['query_model']
+                self.log_status(f"Initializing Gemini model: {gen_model_name}")
+                generative_model = GenerativeModel(gen_model_name)
+            except Exception as model_err:
+                self.log_status(f"Error initializing Gemini: {model_err}", "ERROR")
+                return
+
+            # Process each PDF
+            pdf_files = [f for f in os.listdir(input_path) if f.lower().endswith('.pdf')]
+            
+            for pdf_file in pdf_files:
+                if self.stop_requested.is_set():
+                    break
+                    
+                full_path = os.path.join(input_path, pdf_file)
+                self.log_status(f"Processing: {pdf_file}")
+                
+                try:
+                    # Read PDF content
+                    with fitz.open(full_path) as doc:
+                        pdf_content = ""
+                        for page in doc:
+                            pdf_content += page.get_text()
+
+                    # Get query from user
+                    query = self.query_entry.get().strip()
+                    if not query:
+                        self.log_status("Please enter a query first.", "ERROR")
+                        return
+
+                    # Create prompt
+                    prompt = f"""Here is the content of the PDF file '{pdf_file}'. Please answer the following question based on this content:
+
+Content:
+{pdf_content}
+
+Question: {query}
+
+Please provide a detailed answer based solely on the information in this PDF."""
+
+                    # Generate response
+                    response = generative_model.generate_content(
+                        prompt,
+                        generation_config=GenerationConfig(
+                            temperature=self.settings['temperature'],
+                            max_output_tokens=self.settings['max_output_tokens'],
+                            top_p=self.settings['top_p'],
+                            top_k=self.settings['top_k'],
+                        )
+                    )
+
+                    # Update results
+                    answer = f"Analysis of {pdf_file}:\n\n{response.text}\n\n"
+                    self._update_results(answer)
+
+                except Exception as pdf_err:
+                    self.log_status(f"Error processing {pdf_file}: {pdf_err}", "ERROR")
+                    continue
+
+            self.log_status("Direct PDF analysis completed.")
+
+        except Exception as e:
+            self.log_status(f"Error in direct analysis: {e}", "ERROR")
+        finally:
+            self._process_finished()
 
     # --- UI Interaction Methods ---
 
@@ -352,15 +688,16 @@ class App(ctk.CTk):
 
             # --- 3. Initialize ChromaDB Client ---
             try:
-                # Extract directory from output_path
-                output_dir = os.path.dirname(output_path)
-                self.log_status(f"Initializing ChromaDB client at: {output_dir}...")
-                
                 # Create output directory if it doesn't exist
+                output_dir = os.path.dirname(output_path)
                 os.makedirs(output_dir, exist_ok=True)
                 
-                # Initialize persistent client
-                chroma_client = chromadb.PersistentClient(path=output_dir)
+                # Create a .chroma directory next to the marker file
+                chroma_dir = os.path.join(output_dir, '.chroma')
+                os.makedirs(chroma_dir, exist_ok=True)
+                
+                # Initialize persistent client in the .chroma directory
+                chroma_client = chromadb.PersistentClient(path=chroma_dir)
                 self.log_status("ChromaDB client initialized.")
 
                 collection_name = self.settings['collection_name']
@@ -374,6 +711,13 @@ class App(ctk.CTk):
                 
                 self.log_status(f"Using ChromaDB collection: '{collection.name}'. Current item count: {collection.count()}")
 
+                # Create a marker file to track our database location
+                marker_file = output_path
+                with open(marker_file, 'w') as f:
+                    f.write(f"ChromaDB directory: {chroma_dir}\n")
+                    f.write(f"Collection name: {collection_name}\n")
+                    f.write(f"Created: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+
             except Exception as db_init_err:
                 self.log_status(f"Fatal Error: Failed to initialize ChromaDB or collection: {db_init_err}", "ERROR")
                 logging.error("ChromaDB Initialization failed", exc_info=True)
@@ -383,59 +727,62 @@ class App(ctk.CTk):
             # Using Langchain DirectoryLoader for simplicity. Supports glob patterns.
             documents = []
             try:
-                # Load .txt files
-                self.log_status(f"Loading .txt documents from {input_path}...")
-                txt_loader = DirectoryLoader(
-                    input_path, 
-                    glob="**/*.txt", 
-                    loader_cls=TextLoader, 
-                    show_progress=True,
-                    use_multithreading=True,
-                    silent_errors=True
-                )
-                txt_docs = txt_loader.load()
-                if txt_docs:
-                     documents.extend(txt_docs)
-                     self.log_status(f"Loaded {len(txt_docs)} .txt documents.")
-                else:
-                     self.log_status("No .txt documents found.")
+                # First, list all PDF files in the directory
+                self.log_status(f"Scanning directory: {input_path}")
+                pdf_files = []
+                for root, dirs, files in os.walk(input_path):
+                    for file in files:
+                        if file.lower().endswith('.pdf'):
+                            full_path = os.path.join(root, file)
+                            pdf_files.append(full_path)
+                            self.log_status(f"Found PDF: {full_path}")
 
-                # Load .pdf files
-                if 'PyPDFLoader' in globals():
-                    self.log_status(f"Loading .pdf documents from {input_path}...")
+                if not pdf_files:
+                    self.log_status("No PDF files found in the directory.", "WARN")
+                    return
+
+                self.log_status(f"Found {len(pdf_files)} PDF files to process.")
+
+                # Process each PDF file
+                for pdf_file in pdf_files:
                     try:
-                        pdf_loader = DirectoryLoader(
-                             input_path, 
-                             glob="**/*.pdf", 
-                             loader_cls=PyPDFLoader, 
-                             show_progress=True,
-                             use_multithreading=True,
-                             silent_errors=True
-                        )
-                        pdf_docs = pdf_loader.load()
+                        self.log_status(f"Opening file: {pdf_file}")
+                        
+                        # Try opening with PyMuPDF first
+                        try:
+                            doc = fitz.open(pdf_file)
+                            self.log_status(f"Successfully opened {pdf_file} with PyMuPDF")
+                            doc.close()
+                        except Exception as fitz_err:
+                            self.log_status(f"PyMuPDF failed to open {pdf_file}: {str(fitz_err)}", "ERROR")
+                            continue
+
+                        # Now try processing with our loader
+                        loader = PDFDocumentLoader(pdf_file)
+                        self.log_status(f"Processing {pdf_file} with PDFDocumentLoader")
+                        pdf_docs = loader.load()
+                        
                         if pdf_docs:
                             documents.extend(pdf_docs)
-                            self.log_status(f"Loaded {len(pdf_docs)} .pdf documents.")
+                            self.log_status(f"Successfully processed: {os.path.basename(pdf_file)}")
                         else:
-                            self.log_status("No .pdf documents found.")
-                    except ImportError:
-                         self.log_status("PyPDFLoader not available. Install 'pypdf2' to load PDFs.", "WARN")
-                    except Exception as pdf_load_err:
-                        self.log_status(f"Error loading PDF documents: {pdf_load_err}", "WARN")
-                        logging.warning("PDF Loading error", exc_info=True)
-                else:
-                    self.log_status("PDF support not available (check imports/requirements).", "WARN")
+                            self.log_status(f"No content extracted from: {os.path.basename(pdf_file)}", "WARN")
+                            
+                    except Exception as pdf_err:
+                        self.log_status(f"Error processing PDF {os.path.basename(pdf_file)}: {str(pdf_err)}", "ERROR")
+                        logging.error(f"PDF processing error for {pdf_file}", exc_info=True)
+                        continue
 
                 if not documents:
-                    self.log_status("No documents found to process in the input directory.", "WARN")
-                    return # Nothing to do
-                
-                self.log_status(f"Total documents loaded: {len(documents)}")
+                    self.log_status("No documents were successfully processed.", "ERROR")
+                    return
+                    
+                self.log_status(f"Successfully processed {len(documents)} document chunks from {len(pdf_files)} PDF files.")
 
             except Exception as load_err:
-                self.log_status(f"Error loading documents: {load_err}", "ERROR")
+                self.log_status(f"Error in document loading process: {str(load_err)}", "ERROR")
                 logging.error("Document loading failed", exc_info=True)
-                return # Stop if loading fails
+                return
 
             # --- 5. Chunk Documents ---
             try:
@@ -443,17 +790,15 @@ class App(ctk.CTk):
                 chunk_overlap = self.settings['chunk_overlap']
                 self.log_status(f"Chunking documents (Chunk size: {chunk_size}, Overlap: {chunk_overlap})...")
                 
-                text_splitter = RecursiveCharacterTextSplitter(
+                text_splitter = EnhancedTextSplitter(
                     chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                    length_function=len,
-                    add_start_index=True,
+                    chunk_overlap=chunk_overlap
                 )
                 chunks = text_splitter.split_documents(documents)
                 total_chunks = len(chunks)
                 if total_chunks == 0:
-                     self.log_status("No text chunks generated from documents.", "WARN")
-                     return
+                    self.log_status("No text chunks generated from documents.", "WARN")
+                    return
                 self.log_status(f"Split documents into {total_chunks} chunks.")
             except Exception as split_err:
                 self.log_status(f"Error chunking documents: {split_err}", "ERROR")
@@ -481,7 +826,8 @@ class App(ctk.CTk):
                 start_index = chunk.metadata.get('start_index', i) # Use index as fallback
                 # Sanitize source for Chroma ID
                 source_safe = "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in source)
-                chunk_ids.append(f"id_{source_safe}_{start_index}")
+                # Include chunk index to ensure uniqueness
+                chunk_ids.append(f"id_{source_safe}_{start_index}_{i}")
 
             # --- Batch Processing ---
             batch_size = self.settings['embedding_batch_size']
@@ -603,24 +949,34 @@ class App(ctk.CTk):
 
             # --- 3. Initialize ChromaDB Client & Get Collection ---
             try:
-                # Get directory containing the DB file
-                db_dir = os.path.dirname(db_path)
-                chroma_client = chromadb.PersistentClient(path=db_dir)
-                collection_name = self.settings['collection_name']
-                
+                # Read the marker file to get the ChromaDB directory
+                with open(db_path, 'r') as f:
+                    lines = f.readlines()
+                    chroma_dir = lines[0].split(': ')[1].strip()
+                    collection_name = lines[1].split(': ')[1].strip()
+
+                # Verify the ChromaDB directory exists
+                if not os.path.exists(chroma_dir):
+                    self.log_status(f"Error: ChromaDB directory not found: {chroma_dir}", "ERROR")
+                    self._update_results("Database files not found. The database may have been moved or deleted.")
+                    return
+
+                # Initialize ChromaDB client
+                chroma_client = chromadb.PersistentClient(path=chroma_dir)
                 collection = chroma_client.get_collection(name=collection_name)
-                self.log_status(f"Connected to collection '{collection.name}'. Document count: {collection.count()}")
                 
                 if collection.count() == 0:
-                     self.log_status(f"Warning: The database collection is empty.", "WARN")
-                     self._update_results("The document database is empty. Please embed documents first.")
-                     return
+                    self.log_status(f"Warning: The database collection is empty.", "WARN")
+                    self._update_results("The document database is empty. Please embed documents first.")
+                    return
+
+                self.log_status(f"Connected to collection '{collection.name}'. Document count: {collection.count()}")
 
             except Exception as db_err:
-                 self.log_status(f"Error accessing ChromaDB: {db_err}", "ERROR")
-                 self._update_results(f"Failed to access database. Details: {db_err}")
-                 return
-                 
+                self.log_status(f"Error accessing ChromaDB: {db_err}", "ERROR")
+                self._update_results(f"Failed to access database. Details: {db_err}")
+                return
+
             # --- 4. Embed User Query ---
             if self.stop_requested.is_set(): return
             self.log_status("Embedding user query...")

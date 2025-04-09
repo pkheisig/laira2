@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laira {% if project_id %}- {{ project_id }}{% endif %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    {% block content %}
+    {% if project_id %}
+        <header class="app-header project-header">
+            <a href="{{ url_for('home') }}" class="header-button home-link" title="Back to Home">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            <div class="project-title" id="project-title-display" title="Click to rename notebook" style="cursor: pointer;">{{ project_id }}</div>
+            <nav class="header-actions">
+                <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
+                     <i class="fas fa-sun"></i>
+                </button>
+                <button id="settings-btn" class="header-button" title="Chat Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <div class="user-profile-icon" title="User Account">P</div>
+            </nav>
+        </header>
+
+        <main class="project-container">
+            <aside class="panel sources-panel">
+                <div class="panel-header">
+                    <h2>Sources</h2>
+                </div>
+                <div class="panel-content">
+                    <button class="action-button add-source-btn"><i class="fas fa-plus"></i> Add Source</button>
+                    <button id="embed-btn" class="action-button embed-btn"><i class="fas fa-project-diagram"></i> Embed</button>
+                    <ul id="source-list">
+                        <!-- JS populates this -->
+                    </ul>
+                    <div id="source-list-placeholder" class="placeholder-box" style="display: none; margin-top: 20px; text-align: center;">
+                        <i class="fas fa-file-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                        <p>Add sources like PDFs or text files.</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="panel chat-panel">
+                <div class="panel-header">
+                    <h2>Chat</h2>
+                    <div class="panel-actions">
+                         <button id="generate-summary-btn" class="action-button header-action-btn" title="Generate Summary">
+                             <i class="fas fa-stream"></i> Generate Summary 
+                         </button>
+                    </div>
+                </div>
+                <div id="chat-area" class="panel-content chat-content">
+                     <div id="chat-placeholder" class="placeholder-box" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; text-align: center;">
+                        <i class="fas fa-comments" style="font-size: 3rem; margin-bottom: 16px;"></i>
+                        <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 16px;">Upload a source to start chatting</h3>
+                        <button class="action-button upload-shortcut-btn"><i class="fas fa-upload"></i> Upload Source</button>
+                    </div>
+                </div>
+                <div class="input-area">
+                    <textarea id="user-input" placeholder="Upload a source to get started" rows="1"></textarea>
+                    <button id="send-button" title="Send message"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </main>
+
+            <aside class="panel notes-panel">
+                <div class="panel-header">
+                    <h2>Notes</h2>
+                </div>
+                <div class="panel-content">
+                    <button class="action-button add-note-btn"><i class="fas fa-plus"></i> Add note</button>
+                    <div id="notes-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center;">
+                         <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                        <p>Saved notes will appear here.</p>
+                    </div>
+                     <ul id="notes-list" style="display: none;">
+                        <!-- JS populates this -->
+                    </ul>
+                </div>
+            </aside>
+        </main>
+
+        <div id="add-source-modal" class="modal-overlay">
+             <div class="modal-content">
+                 <div class="modal-header">
+                     <h2>Add sources</h2>
+                     <button class="modal-close-btn" title="Close">&times;</button>
+                 </div>
+                 <div class="modal-body">
+                     <p>Sources let Laira base its responses on the information that matters most to you.</p>
+                     <div id="drop-zone" class="upload-area">
+                         <input type="file" id="modal-file-upload" multiple accept=".pdf,.txt" style="display: none;">
+                         <i class="fas fa-upload"></i>
+                         <div class="upload-text">Drag & drop or <label for="modal-file-upload" class="file-label">choose file</label> to upload</div>
+                         <div class="upload-hint">Supported file types: PDF, TXT</div>
+                     </div>
+                 </div>
+                 <div class="modal-footer">
+                    <span class="source-limit">Source limit: 0 / 50</span>
+                 </div>
+             </div>
+        </div>
+
+         <div id="settings-modal" class="modal-overlay">
+             <div class="modal-content settings-modal-content">
+                 <div class="modal-header">
+                     <h2>Chat Settings</h2>
+                     <button class="modal-close-btn" title="Close">&times;</button>
+                 </div>
+                 <div class="modal-body">
+                     <form id="settings-form">
+                         <div class="form-group">
+                             <label for="temperature-slider">Temperature: <span id="temperature-value">0.2</span></label>
+                             <input type="range" id="temperature-slider" name="temperature" min="0.0" max="1.0" step="0.05" value="0.2">
+                         </div>
+                         <div class="form-group">
+                            <label for="max-tokens-select">Max Output Tokens:</label>
+                            <select id="max-tokens-select" name="max_output_tokens">
+                                <option value="2048">2048</option>
+                                <option value="4096">4096</option>
+                                <option value="8192" selected>8192</option> 
+                                <option value="16384">16384</option>
+                                <option value="32768">32768</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                             <label for="top-p-slider">Top P: <span id="top-p-value">0.95</span></label>
+                             <input type="range" id="top-p-slider" name="top_p" min="0.0" max="1.0" step="0.05" value="0.95">
+                         </div>
+                        <div class="form-group">
+                             <label for="top-k-input">Top K:</label>
+                             <input type="number" id="top-k-input" name="top_k" min="1" value="40" step="1">
+                         </div>
+                     </form>
+                 </div>
+                 <div class="modal-footer">
+                      <button type="button" class="secondary-btn settings-cancel-btn">Cancel</button>
+                     <button type="submit" form="settings-form" class="primary-btn settings-save-btn">Save Settings</button>
+                 </div>
+             </div>
+         </div>
+
+    {% else %}
+        <header class="app-header home-header">
+            <div class="logo">LAIRA</div>
+            <nav class="header-actions">
+                <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
+                     <i class="fas fa-sun"></i>
+                </button>
+                <div class="user-profile-icon" title="User Account">P</div>
+            </nav>
+        </header>
+        <main class="home-container">
+            <h1>Welcome to LAIRA</h1>
+            <div class="notebook-section">
+                <h2>My Notebooks</h2>
+                <div class="view-options">
+                     <button class="action-button create-new-btn"><i class="fas fa-plus"></i> Create new</button>
+                     <div class="view-controls">
+                         <button id="view-grid-btn" class="view-btn active" title="Grid view">
+                             <i class="fas fa-th-large"></i>
+                         </button>
+                         <button id="view-list-btn" class="view-btn" title="List view">
+                             <i class="fas fa-list"></i>
+                         </button>
+                         <select id="sort-dropdown">
+                             <option value="recent">Most recent</option>
+                             <option value="name">Name</option>
+                         </select>
+                     </div>
+                </div>
+                <div id="project-list-area" class="project-grid">
+                    <div id="home-placeholder" class="placeholder-box" style="grid-column: 1 / -1; margin-top: 40px; text-align: center;">
+                        <i class="fas fa-book-open" style="font-size: 3rem; margin-bottom: 16px;"></i>
+                        <p>Your notebooks will appear here.<br>Click 'Create new' to get started.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    {% endif %}
+    {% endblock %}
+
+    <div id="status-message"></div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 
