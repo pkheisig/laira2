@@ -66,8 +66,13 @@ function setupHomeViewListeners() {
     if (createNewBtn) {
         createNewBtn.addEventListener('click', () => {
             console.log("Home page 'Create new' clicked");
-            const newProjectId = `proj_${Date.now()}`;
-            window.location.href = `/project/${newProjectId}`;
+            // Generate default name - User requested removing timestamp
+            const defaultName = "New_Project"; 
+            // const uniqueId = `${defaultName}_${Date.now()}`; // Original timestamped version
+            const uniqueId = defaultName; // Using fixed name as requested
+            // Note: This might lead to collisions if multiple "New_Project" exist.
+            // Requires backend/user to handle renaming promptly.
+            window.location.href = `/project/${uniqueId}`;
         });
     } else { console.warn("Home Create New button not found"); }
 
@@ -140,6 +145,12 @@ function setupProjectViewListeners(projectId) {
     const saveRenameBtn = document.getElementById('save-rename-project-btn');
     const cancelRenameBtn = document.getElementById('cancel-rename-project-btn');
     let originalTitle = '';
+
+    // Notes Panel Elements
+    const addNoteBtn = document.querySelector('.notes-panel .add-note-btn');
+    const notesList = document.getElementById('notes-list');
+    const notesPanelContent = document.querySelector('.notes-panel .panel-content');
+    const notesListPlaceholder = document.getElementById('notes-list-placeholder'); // Added
 
     // --- Modal Visibility Functions ---
     function showModal(modalElement) {
@@ -499,6 +510,68 @@ function setupProjectViewListeners(projectId) {
             document.removeEventListener('mouseup', handleMouseUp);
         }
     });
+
+    // --- Notes Panel Logic ---
+    function createNotePopup() {
+        // Prevent creating multiple popups
+        if (document.getElementById('note-popup-textarea')) return;
+
+        const textarea = document.createElement('textarea');
+        textarea.id = 'note-popup-textarea';
+        textarea.placeholder = 'Type your note...';
+        textarea.rows = 4;
+        textarea.classList.add('note-popup-textarea'); // Add class for styling
+
+        if (notesPanelContent) {
+            notesPanelContent.appendChild(textarea);
+            textarea.focus();
+
+            // Use 'blur' event to save/close
+            textarea.addEventListener('blur', handleNotePopupBlur, { once: true });
+
+        } else {
+            console.error("Notes panel content area not found.");
+        }
+    }
+
+    function handleNotePopupBlur(event) {
+        const textarea = event.target;
+        const noteText = textarea.value.trim();
+
+        if (noteText) {
+            addNoteToList(noteText);
+            // TODO: Send note to backend for saving
+            console.log("Note saved (placeholder):", noteText);
+        }
+
+        textarea.remove(); // Remove the textarea itself
+    }
+
+    function addNoteToList(text) {
+        if (!notesList) return;
+        const listItem = document.createElement('li');
+        // Basic structure, can be enhanced later (e.g., with delete button)
+        listItem.textContent = text;
+        notesList.appendChild(listItem);
+        checkNotesList(); // Update placeholder visibility
+    }
+
+    function checkNotesList() {
+        const hasNotes = notesList && notesList.children.length > 0;
+        if (notesListPlaceholder) {
+            notesListPlaceholder.style.display = hasNotes ? 'none' : 'block';
+        }
+    }
+
+    // Event listener for the Add Note button
+    if (addNoteBtn) {
+        addNoteBtn.addEventListener('click', createNotePopup);
+    } else {
+        console.warn("Add Note button not found.");
+    }
+
+    // Initial check for notes placeholder
+    checkNotesList();
 
     // Initial check
     checkSourceList(); 

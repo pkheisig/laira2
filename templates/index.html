@@ -159,19 +159,22 @@
          </div>
 
     {% else %}
-        <header class="app-header home-header">
-            <div class="logo">LAIRA</div>
+        <!-- === Home Page === -->
+         <header class="app-header home-header"> 
+            <!-- Logo Removed -->
+            <div class="logo-placeholder" style="width: 80px;"></div> <!-- Empty placeholder to balance flex -->
             <nav class="header-actions">
                 <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
                      <i class="fas fa-sun"></i>
                 </button>
-                <div class="user-profile-icon" title="User Account">P</div>
+                 <!-- Settings Button Removed -->
+                <div class="user-profile-icon" title="User Account">?</div> <!-- Changed Placeholder -->
             </nav>
         </header>
         <main class="home-container">
-            <h1>Welcome to LAIRA</h1>
+            <h1>LAIRA<br><span class="subtitle">Literature AI Research Assistant</span></h1>
             <div class="notebook-section">
-                <h2>My Notebooks</h2>
+                <h2>My Projects</h2>
                 <div class="view-options">
                      <button class="action-button create-new-btn"><i class="fas fa-plus"></i> Create new</button>
                      <div class="view-controls">
@@ -183,7 +186,7 @@
                          </button>
                          <select id="sort-dropdown">
                              <option value="recent">Most recent</option>
-                             <option value="name">Name</option>
+                             <option value="alpha">Alphabetic</option>
                          </select>
                      </div>
                 </div>

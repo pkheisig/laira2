@@ -8,12 +8,12 @@
     --panel-alt-bg-light: #ffffff;
     --border-color-light: #dadce0;
     --input-bg-light: #f1f3f4;
-    --button-primary-bg-light: #1a73e8;
+    --button-primary-bg-light: #cc6600; /* Dark Orange */
     --button-primary-text-light: #ffffff;
     --button-secondary-border-light: #dadce0;
-    --button-secondary-text-light: #1a73e8;
-    --hover-bg-light: #e8f0fe;
-    --accent-color-light: #1a73e8;
+    --button-secondary-text-light: #cc6600; /* Dark Orange */
+    --hover-bg-light: #fff0e0; /* Lighter orange hover */
+    --accent-color-light: #cc6600; /* Dark Orange */
 
     /* Define Dark Theme Colors */
     --bg-color-dark: #202124; /* Darker BG like screenshot */
@@ -23,12 +23,12 @@
     --panel-alt-bg-dark: #202124; /* Match body */
     --border-color-dark: #3c4043;
     --input-bg-dark: #292a2d;
-    --button-primary-bg-dark: #8ab4f8;
-    --button-primary-text-dark: #202124;
+    --button-primary-bg-dark: #ff8c00; /* Orange/Yellowish */
+    --button-primary-text-dark: #ffffff;
     --button-secondary-border-dark: #5f6368;
-    --button-secondary-text-dark: #8ab4f8;
-    --hover-bg-dark: #303134;
-    --accent-color-dark: #8ab4f8;
+    --button-secondary-text-dark: #ff8c00; /* Orange/Yellowish */
+    --hover-bg-dark: #4d2d0c; /* Dark orange hover */
+    --accent-color-dark: #ff8c00; /* Orange/Yellowish */
 }
 
 html {
@@ -107,6 +107,9 @@ body.dark-theme .app-header {
 }
 
 .logo {
+    display: flex; /* Align icon and text */
+    align-items: center;
+    gap: 10px;
     font-weight: 500;
     font-size: 1.5em;
     color: var(--text-color-light);
@@ -470,16 +473,37 @@ body.dark-theme .placeholder-box i {
     margin: 0 auto; /* Center */
     padding: 40px 30px; /* Vertical/horizontal padding */
     flex-grow: 1; 
+    text-align: center; /* Center-align content */
 }
 
+/* Welcome Heading */
 .home-container h1 {
-    font-size: 2.2em; /* Large welcome */
+    font-size: 4.4em; 
     font-weight: 500;
-    margin-bottom: 40px;
-    color: var(--accent-color-light);
+    margin-bottom: 60px; 
+    line-height: 1.2; 
+    /* Apply gradient to the whole H1 */
+    background: linear-gradient(90deg, #ff8c00, #ffd700); /* Dark Orange to Dark Yellow */
+    -webkit-background-clip: text; 
+    -moz-background-clip: text;    
+    -ms-background-clip: text;     
+    background-clip: text;
+    color: transparent; 
+    -webkit-text-fill-color: transparent; 
+    display: inline-block; 
 }
-body.dark-theme .home-container h1 {
-    color: var(--accent-color-dark);
+/* No dark theme override needed for gradient */
+
+.home-container h1 .subtitle {
+    font-size: 70%; /* Make subtitle 30% smaller */
+    font-weight: 400; /* Lighter weight for subtitle */
+    display: block; /* Ensure it stays on its own line */
+    /* The gradient is inherited from the parent H1 */
+}
+
+.notebook-section {
+    margin-top: 30px; 
+    text-align: left; /* Align section content left */
 }
 
 .notebook-section h2 {
@@ -500,11 +524,6 @@ body.dark-theme .notebook-section h2 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 25px;
-}
-
-/* Inherits .action-button styles */
-.view-options .create-new-btn {
-     /* Keep pill shape from .action-button */
 }
 
 .view-controls {
@@ -900,11 +919,43 @@ body.dark-theme #send-button:disabled {
      overflow-y: auto;
      /* Add note item styles later */
 }
+#notes-list .placeholder-box {
+    padding: 20px;
+    text-align: center;
+    border: 1px dashed var(--border-color-light);
+    border-radius: 4px;
+    margin: 10px; /* Add margin */
+}
+body.dark-theme #notes-list .placeholder-box {
+    border-color: var(--border-color-dark);
+}
+
+/* Style for the temporary textarea */
+#temp-note-textarea {
+    position: absolute; /* Position relative to the clicked point */
+    z-index: 1010; /* Above other panel content */
+    width: 200px; /* Example width */
+    height: 100px; /* Example height */
+    padding: 8px;
+    border: 1px solid var(--accent-color-light);
+    border-radius: 4px;
+    background-color: var(--panel-alt-bg-light);
+    color: var(--text-color-light);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    resize: both; /* Allow resizing */
+    overflow: auto;
+}
+body.dark-theme #temp-note-textarea {
+    border-color: var(--accent-color-dark);
+    background-color: var(--panel-alt-bg-dark);
+    color: var(--text-color-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
 
 .project-title-container {
     display: flex;
     align-items: center;
-    gap: 5px; 
+    gap: 5px;
     flex-grow: 1; /* Allow it to take space */
     margin: 0 20px; /* Spacing */
     overflow: hidden; /* Prevent title overflow */
@@ -980,4 +1031,199 @@ body.resizing {
     -moz-user-select: none; /* Firefox */
     -ms-user-select: none; /* IE10+ */
     cursor: col-resize !important; /* Force cursor globally */
-} 
+}
+
+/* ... Project Card Styles (Home Page) ... */
+.project-card {
+    background-color: var(--panel-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 12px; /* More rounded corners */
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 180px; /* Fixed height for cards */
+    cursor: pointer;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+    overflow: hidden; 
+}
+body.dark-theme .project-card {
+    background-color: var(--panel-bg-dark);
+    border-color: var(--border-color-dark);
+}
+
+.project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+body.dark-theme .project-card:hover {
+     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+.card-icon {
+    font-size: 1.3em;
+    color: var(--secondary-text-light);
+    background-color: var(--input-bg-light);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+body.dark-theme .card-icon {
+    color: var(--secondary-text-dark);
+    background-color: var(--input-bg-dark);
+}
+
+.card-options-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    font-size: 1rem;
+    padding: 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden; 
+    opacity: 0;
+    transition: background-color 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+body.dark-theme .card-options-btn {
+    color: var(--secondary-text-dark);
+}
+.project-card:hover .card-options-btn {
+     visibility: visible;
+     opacity: 1;
+}
+.card-options-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .card-options-btn:hover {
+     background-color: var(--hover-bg-dark);
+     color: var(--text-color-dark);
+}
+
+.card-body {
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+}
+
+.card-title {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: var(--text-color-light);
+    margin-bottom: 5px;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+}
+body.dark-theme .card-title {
+     color: var(--text-color-dark);
+}
+
+.card-meta {
+    font-size: 0.8em;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .card-meta {
+     color: var(--secondary-text-dark);
+}
+
+.card-footer {
+     margin-top: auto; 
+     padding-top: 10px; 
+     flex-shrink: 0;
+     display: flex;
+     justify-content: flex-end; 
+}
+
+.card-shared-icon {
+     color: var(--secondary-text-light);
+     font-size: 0.9em;
+}
+body.dark-theme .card-shared-icon {
+      color: var(--secondary-text-dark);
+}
+
+/* ... Project Page Styles ... */
+.header-logo-icon {
+    font-size: 1.1em; /* Adjust icon size relative to text */
+    color: var(--accent-color-light); /* Use accent color */
+}
+body.dark-theme .header-logo-icon {
+    color: var(--accent-color-dark);
+}
+
+/* Update slider thumb/track appearance if needed (browser specific) */
+input[type=range] {
+    -webkit-appearance: none; /* Override default look */
+    appearance: none;
+    width: 100%; /* Full-width */
+    height: 8px; /* Track height */
+    background: var(--input-bg-light); /* Track background */
+    border-radius: 5px;
+    outline: none; 
+    opacity: 0.7;
+    transition: opacity .2s;
+}
+body.dark-theme input[type=range] {
+     background: var(--input-bg-dark);
+}
+input[type=range]:hover {
+    opacity: 1; /* Full opacity on hover */
+}
+
+/* Thumb Styles */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; /* Thumb width */
+  height: 18px; /* Thumb height */
+  background: var(--accent-color-light); 
+  border-radius: 50%;
+  cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--accent-color-light);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none; /* FF specific */
+}
+body.dark-theme input[type=range]::-webkit-slider-thumb {
+  background: var(--accent-color-dark);
+}
+body.dark-theme input[type=range]::-moz-range-thumb {
+   background: var(--accent-color-dark);
+}
+
+/* Track Styles (adding these) */
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: var(--input-bg-light);
+  border-radius: 5px;
+}
+body.dark-theme input[type=range]::-moz-range-track {
+   background: var(--input-bg-dark);
+}
+/* Note: Webkit track style is largely controlled by the main input[type=range] style now */
+/* For progress indication (left side of thumb), it's complex and varies */
+/* We'll rely on the thumb color for now */ 

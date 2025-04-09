@@ -20,14 +20,9 @@ def allowed_file(filename):
 
 @app.route('/')
 def home():
-    """Renders the project dashboard."""
-    # Placeholder for actual project data (fetch from database/storage later)
-    projects = [
-        {'id': 'proj1', 'title': 'Sample Project Alpha', 'date': 'Aug 1, 2024', 'sources': 5},
-        {'id': 'proj2', 'title': 'Research Notes - Beta', 'date': 'Jul 28, 2024', 'sources': 12},
-        {'id': 'proj3', 'title': 'Meeting Summaries', 'date': 'Jul 25, 2024', 'sources': 3},
-    ]
-    return render_template('home.html', projects=projects)
+    """Renders the home/dashboard page."""
+    # Let the Jinja template handle the conditional rendering based on project_id absence
+    return render_template('index.html', project_id=None) # Render index.html with no project_id
 
 @app.route('/project/<project_id>')
 def project_view(project_id):
