@@ -14,7 +14,18 @@
             <a href="{{ url_for('home') }}" class="header-button home-link" title="Back to Home">
                 <i class="fas fa-chevron-left"></i>
             </a>
-            <div class="project-title" id="project-title-display" title="Click to rename notebook" style="cursor: pointer;">{{ project_id }}</div>
+            <div class="project-title-container">
+                 <span id="project-title-display" contenteditable="false">{{ project_id }}</span>
+                 <button id="rename-project-btn" class="header-button rename-button" title="Rename notebook">
+                     <i class="fas fa-pencil-alt"></i>
+                 </button>
+                 <button id="save-rename-project-btn" class="header-button save-rename-button" title="Save name" style="display: none;">
+                     <i class="fas fa-check"></i>
+                 </button>
+                 <button id="cancel-rename-project-btn" class="header-button cancel-rename-button" title="Cancel rename" style="display: none;">
+                     <i class="fas fa-times"></i>
+                 </button>
+            </div>
             <nav class="header-actions">
                 <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
                      <i class="fas fa-sun"></i>
@@ -32,8 +43,10 @@
                     <h2>Sources</h2>
                 </div>
                 <div class="panel-content">
-                    <button class="action-button add-source-btn"><i class="fas fa-plus"></i> Add Source</button>
-                    <button id="embed-btn" class="action-button embed-btn"><i class="fas fa-project-diagram"></i> Embed</button>
+                    <div class="source-panel-buttons">
+                        <button class="action-button add-source-btn"><i class="fas fa-plus"></i> Add Source</button>
+                        <button id="embed-btn" class="action-button embed-btn"><i class="fas fa-project-diagram"></i> Embed</button>
+                    </div>
                     <ul id="source-list">
                         <!-- JS populates this -->
                     </ul>
@@ -65,6 +78,8 @@
                     <button id="send-button" title="Send message"><i class="fas fa-paper-plane"></i></button>
                 </div>
             </main>
+
+            <div class="resizer" data-resizer-left=".chat-panel" data-resizer-right=".notes-panel"></div>
 
             <aside class="panel notes-panel">
                 <div class="panel-header">

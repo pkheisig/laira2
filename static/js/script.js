@@ -132,9 +132,14 @@ function setupProjectViewListeners(projectId) {
     const sendButton = document.getElementById('send-button');
     const embedBtn = document.getElementById('embed-btn');
     const generateSummaryBtn = document.getElementById('generate-summary-btn');
+    const projectTitleContainer = document.querySelector('.project-title-container');
     const projectTitleDisplay = document.getElementById('project-title-display');
     const chatPlaceholder = document.getElementById('chat-placeholder');
     const sourceListPlaceholder = document.getElementById('source-list-placeholder');
+    const renameBtn = document.getElementById('rename-project-btn');
+    const saveRenameBtn = document.getElementById('save-rename-project-btn');
+    const cancelRenameBtn = document.getElementById('cancel-rename-project-btn');
+    let originalTitle = '';
 
     // --- Modal Visibility Functions ---
     function showModal(modalElement) {
@@ -330,16 +335,170 @@ function setupProjectViewListeners(projectId) {
     // --- Other Project View Buttons ---
     if (embedBtn) embedBtn.addEventListener('click', () => console.log("Embed clicked (placeholder)"));
     if (generateSummaryBtn) generateSummaryBtn.addEventListener('click', () => console.log("Generate Summary clicked (placeholder)"));
-    if (projectTitleDisplay) {
-        projectTitleDisplay.addEventListener('click', () => {
-            const newTitle = prompt("Rename notebook:", projectTitleDisplay.textContent);
-            if (newTitle && newTitle.trim()) {
-                 projectTitleDisplay.textContent = newTitle.trim();
-                 document.title = `Laira - ${newTitle.trim()}`;
-                 // TODO: Send to backend
+
+    // --- Project Title Renaming --- 
+    if (projectTitleDisplay && renameBtn && saveRenameBtn && cancelRenameBtn && projectTitleContainer) {
+        renameBtn.addEventListener('click', () => {
+            originalTitle = projectTitleDisplay.textContent;
+            projectTitleDisplay.contentEditable = 'true';
+            projectTitleDisplay.focus();
+            projectTitleContainer.classList.add('editing');
+            // Select text? Maybe not needed if focus is sufficient
+            // document.execCommand('selectAll', false, null);
+        });
+
+        saveRenameBtn.addEventListener('click', () => {
+            const newTitle = projectTitleDisplay.textContent.trim();
+            projectTitleDisplay.contentEditable = 'false';
+            projectTitleContainer.classList.remove('editing');
+            if (newTitle && newTitle !== originalTitle) {
+                projectTitleDisplay.textContent = newTitle; // Optimistic update
+                document.title = `Laira - ${newTitle}`;
+                console.log(`TODO: Send new title to backend: ${newTitle}`);
+                // TODO: Add fetch call to backend to save newTitle
+                // Handle potential backend errors and revert UI if needed
+            } else {
+                projectTitleDisplay.textContent = originalTitle; // Revert if empty or unchanged
             }
         });
+
+        cancelRenameBtn.addEventListener('click', () => {
+            projectTitleDisplay.textContent = originalTitle;
+            projectTitleDisplay.contentEditable = 'false';
+            projectTitleContainer.classList.remove('editing');
+        });
+
+        // Optional: Save/Cancel on Enter/Escape while editing
+        projectTitleDisplay.addEventListener('keydown', (e) => {
+            if (projectTitleDisplay.contentEditable === 'true') {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent newline
+                    saveRenameBtn.click();
+                } else if (e.key === 'Escape') {
+                    cancelRenameBtn.click();
+                }
+            }
+        });
+
+        // Optional: Prevent losing focus easily / Save on blur?
+        // projectTitleDisplay.addEventListener('blur', () => {
+        //     if (projectTitleContainer.classList.contains('editing')) {
+        //         // Might be too aggressive - consider if clicking save/cancel counts as blur
+        //         // setTimeout(() => saveRenameBtn.click(), 100); // Delay to allow button clicks
+        //     }
+        // });
+
+    } else {
+        console.warn("Project title renaming elements not found.");
     }
+
+    // --- Resizable Panels (Only Chat <-> Notes now) --- 
+    const resizers = document.querySelectorAll('.project-container .resizer');
+    // Min widths remain the same
+    const notesPanelDefaultWidthPx = 260; // Default width from CSS
+    const notesPanelMaxWidthPx = notesPanelDefaultWidthPx * 2; 
+    const centralPanelMinWidthPx = 300; 
+
+    resizers.forEach(resizer => {
+        let isResizing = false;
+        let startX = 0;
+        let chatPanelStartWidth = 0; // Left is always chat now
+        let notesPanelStartWidth = 0; // Right is always notes now
+        let containerWidth = 0;
+        let chatPanel = null;
+        let notesPanel = null;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            resizer.classList.add('resizing');
+            document.body.classList.add('resizing'); 
+
+            // Only one resizer, so panels are fixed
+            chatPanel = document.querySelector('.chat-panel');
+            notesPanel = document.querySelector('.notes-panel');
+            containerWidth = resizer.parentElement.offsetWidth; 
+
+            if (!chatPanel || !notesPanel) {
+                console.error("Could not find chat or notes panel");
+                isResizing = false; 
+                return;
+            }
+            
+            chatPanelStartWidth = chatPanel.offsetWidth;
+            notesPanelStartWidth = notesPanel.offsetWidth;
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing || !chatPanel || !notesPanel) return;
+
+            const currentX = e.clientX;
+            const deltaX = currentX - startX;
+
+            // Initial calculation based on drag delta
+            let newChatWidthPx = chatPanelStartWidth + deltaX;
+            let newNotesWidthPx = notesPanelStartWidth - deltaX;
+            
+            // --- Boundary Clamping --- 
+            
+            // 1. Enforce Notes Panel Max Width
+            if (newNotesWidthPx > notesPanelMaxWidthPx) {
+                 newNotesWidthPx = notesPanelMaxWidthPx;
+                 newChatWidthPx = chatPanelStartWidth + notesPanelStartWidth - notesPanelMaxWidthPx;
+            }
+            
+            // 2. Enforce Notes Panel Min Width (using its default as min)
+             if (newNotesWidthPx < notesPanelDefaultWidthPx) {
+                 newNotesWidthPx = notesPanelDefaultWidthPx;
+                 newChatWidthPx = chatPanelStartWidth + notesPanelStartWidth - notesPanelDefaultWidthPx;
+             }
+             
+            // 3. Enforce Chat Panel Min Width
+             if (newChatWidthPx < centralPanelMinWidthPx) {
+                 newChatWidthPx = centralPanelMinWidthPx;
+                 newNotesWidthPx = chatPanelStartWidth + notesPanelStartWidth - centralPanelMinWidthPx;
+                 // Re-check notes max after chat min enforcement
+                 if (newNotesWidthPx > notesPanelMaxWidthPx) newNotesWidthPx = notesPanelMaxWidthPx;
+                 // Re-check notes min after chat min enforcement
+                 if (newNotesWidthPx < notesPanelDefaultWidthPx) newNotesWidthPx = notesPanelDefaultWidthPx;
+             }
+
+            // --- Convert to Percentages --- 
+            newChatWidthPx = Math.max(0, newChatWidthPx);
+            newNotesWidthPx = Math.max(0, newNotesWidthPx);
+
+            const totalWidth = newChatWidthPx + newNotesWidthPx;
+            let chatPercent = (newChatWidthPx / totalWidth) * 100;
+            let notesPercent = (newNotesWidthPx / totalWidth) * 100;
+            
+            if (chatPercent + notesPercent > 100) {
+                if (chatPercent > notesPercent) { chatPercent = 100 - notesPercent; }
+                 else { notesPercent = 100 - chatPercent; }
+            }
+
+            // Apply percentages
+            chatPanel.style.flexBasis = `${chatPercent}%`;
+            notesPanel.style.flexBasis = `${notesPercent}%`;
+            
+            // Keep grow/shrink factors
+            chatPanel.style.flexGrow = '0'; 
+            notesPanel.style.flexGrow = '0';
+            chatPanel.style.flexShrink = '1'; // Allow chat panel to shrink if needed
+            notesPanel.style.flexShrink = '0'; 
+        }
+
+        function handleMouseUp() {
+            if (!isResizing) return;
+            isResizing = false;
+            resizer.classList.remove('resizing');
+            document.body.classList.remove('resizing');
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+    });
 
     // Initial check
     checkSourceList(); 
