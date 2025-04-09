@@ -103,7 +103,50 @@ function setupHomeViewListeners() {
         });
     } else { console.warn("Home Create New button not found"); }
 
-    // NEW: Function to render a single project card
+    // NEW: Function to delete a project (defined inside setupHomeViewListeners)
+    function deleteProject(projectId, cardElement) {
+        // Ensure storageKey is accessible
+        if (!confirm(`Are you sure you want to delete project \"${projectId}\"? This action cannot be undone.`)) {
+            return;
+        }
+        console.log(`Attempting to delete project ${projectId}`);
+        try {
+            // 1. Load projects from localStorage
+            let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            console.log("Projects before deletion:", projects);
+
+            // 2. Filter out the project
+            const initialLength = projects.length;
+            const updatedProjects = projects.filter(p => p.id !== projectId);
+            const removed = initialLength > updatedProjects.length;
+            console.log("Projects after filtering:", updatedProjects);
+
+            if (removed) {
+                // 3. Save the updated list back
+                localStorage.setItem(storageKey, JSON.stringify(updatedProjects));
+                console.log(`Saved updated projects list to localStorage.`);
+
+                // 4. Remove the card from the DOM
+                cardElement.remove();
+                console.log(`Project ${projectId} card removed from UI.`);
+
+                // 5. Check if placeholder should be shown
+                const remainingCards = projectListArea.querySelectorAll('.project-card').length;
+                 console.log("Remaining cards:", remainingCards);
+                if (remainingCards === 0 && homePlaceholder) {
+                    homePlaceholder.style.display = 'block';
+                     console.log("Showing placeholder.");
+                }
+            } else {
+                console.warn(`Project with ID ${projectId} not found in localStorage array for deletion.`);
+            }
+        } catch (error) {
+            console.error("Error during project deletion:", error);
+            alert("An error occurred while trying to delete the project.");
+        }
+    }
+
+    // MODIFIED: Function to render a single project card
     function renderProjectCard(projectData) {
         if (!projectListArea || !projectCardTemplate) {
             console.error("Project list area or template not found.");
@@ -114,19 +157,147 @@ function setupHomeViewListeners() {
         const cardElement = cardClone.querySelector('.project-card');
         const titleElement = cardClone.querySelector('.card-title');
         const dateElement = cardClone.querySelector('.card-mod-date');
+        const optionsBtn = cardClone.querySelector('.card-options-btn');
+        const optionsMenu = cardClone.querySelector('.card-options-menu');
+        const renameBtn = cardClone.querySelector('.rename-card-btn');
+        const deleteBtn = cardClone.querySelector('.delete-card-btn');
+        // NEW: Rename controls (initially hidden, could be added dynamically too)
+        const cardBody = cardClone.querySelector('.card-body'); // Need parent for buttons
+        const saveCardRenameBtn = document.createElement('button');
+        saveCardRenameBtn.innerHTML = '<i class="fas fa-check"></i>';
+        saveCardRenameBtn.className = 'card-inline-btn save-card-rename-btn';
+        saveCardRenameBtn.title = 'Save Name';
+        saveCardRenameBtn.style.display = 'none';
+        const cancelCardRenameBtn = document.createElement('button');
+        cancelCardRenameBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelCardRenameBtn.className = 'card-inline-btn cancel-card-rename-btn';
+        cancelCardRenameBtn.title = 'Cancel Rename';
+        cancelCardRenameBtn.style.display = 'none';
 
-        if (cardElement) cardElement.dataset.projectId = projectData.id; // Store ID for navigation
-        if (titleElement) titleElement.textContent = projectData.title;
-        if (dateElement) dateElement.textContent = projectData.modifiedDate;
-
-        // Handle click to navigate to project
-        if (cardElement) {
-            cardElement.addEventListener('click', (e) => {
-                // Prevent navigation if options button is clicked (future)
-                if (e.target.closest('.card-options-btn')) return;
-                window.location.href = `/project/${projectData.id}`;
-            });
+        if (!cardElement || !titleElement || !dateElement || !optionsBtn || !optionsMenu || !renameBtn || !deleteBtn || !cardBody) {
+            console.error("Missing card elements");
+            return;
         }
+
+        cardElement.dataset.projectId = projectData.id; // Store ID for navigation & actions
+        titleElement.textContent = projectData.title;
+        dateElement.textContent = projectData.modifiedDate;
+
+        // Handle click to navigate to project (ignore clicks on button/menu)
+        cardElement.addEventListener('click', (e) => {
+            if (e.target.closest('.card-options-btn') || e.target.closest('.card-options-menu')) {
+                return; // Don't navigate if clicking options button or menu itself
+            }
+            window.location.href = `/project/${projectData.id}`;
+        });
+
+        // Handle Options Button Click
+        optionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent card click navigation
+            // Close other open menus first
+            document.querySelectorAll('.card-options-menu.active').forEach(menu => {
+                if (menu !== optionsMenu) menu.classList.remove('active');
+            });
+            // Toggle current menu
+            optionsMenu.classList.toggle('active');
+        });
+
+        // MODIFIED: Handle Rename Button Click 
+        renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log(`Rename action triggered for project ${projectData.id}`);
+            optionsMenu.classList.remove('active'); // Close menu
+            
+            // Start editing
+            cardElement.classList.add('editing'); // Add class to card for styling/state
+            titleElement.contentEditable = 'true';
+            titleElement.dataset.originalTitle = titleElement.textContent; // Store original
+            titleElement.focus();
+            document.execCommand('selectAll', false, null); // Select text
+
+            // Show inline save/cancel buttons
+            cardBody.appendChild(saveCardRenameBtn);
+            cardBody.appendChild(cancelCardRenameBtn);
+            saveCardRenameBtn.style.display = 'inline-flex';
+            cancelCardRenameBtn.style.display = 'inline-flex';
+        });
+
+        // MODIFIED: Handle Save Rename Click - Ensure storageKey access & logging
+        saveCardRenameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newTitle = titleElement.textContent.trim();
+            const originalTitle = titleElement.dataset.originalTitle;
+            const projectIdToRename = cardElement.dataset.projectId;
+
+            titleElement.contentEditable = 'false';
+            cardElement.classList.remove('editing');
+            saveCardRenameBtn.style.display = 'none';
+            cancelCardRenameBtn.style.display = 'none';
+
+            if (newTitle && newTitle !== originalTitle) {
+                titleElement.textContent = newTitle; // Optimistic UI
+                try {
+                    let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                     console.log(`Renaming: Projects before update for ${projectIdToRename}:`, projects);
+                    const projectIndex = projects.findIndex(p => p.id === projectIdToRename);
+
+                    if (projectIndex !== -1) {
+                        projects[projectIndex].title = newTitle;
+                        projects[projectIndex].modifiedDate = new Date().toLocaleDateString();
+                        localStorage.setItem(storageKey, JSON.stringify(projects));
+                        if (dateElement) dateElement.textContent = projects[projectIndex].modifiedDate;
+                        console.log(`Renamed project ${projectIdToRename} to "${newTitle}". Saved to localStorage.`);
+                    } else {
+                        console.error(`Could not find project ${projectIdToRename} to rename.`);
+                        titleElement.textContent = originalTitle; // Revert UI
+                    }
+                } catch (error) {
+                     console.error("Error saving rename to localStorage:", error);
+                     titleElement.textContent = originalTitle; // Revert UI on error
+                     alert("Error saving rename.");
+                }
+            } else {
+                titleElement.textContent = originalTitle; // Revert if empty/unchanged
+            }
+            delete titleElement.dataset.originalTitle;
+        });
+
+        // MODIFIED: Handle Cancel Rename Click
+        cancelCardRenameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            titleElement.textContent = titleElement.dataset.originalTitle;
+            titleElement.contentEditable = 'false';
+            cardElement.classList.remove('editing');
+            saveCardRenameBtn.style.display = 'none';
+            cancelCardRenameBtn.style.display = 'none';
+             delete titleElement.dataset.originalTitle;
+        });
+
+        // Optional: Handle Enter/Escape during card title editing
+        titleElement.addEventListener('keydown', (e) => {
+            if (titleElement.contentEditable === 'true') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveCardRenameBtn.click();
+                } else if (e.key === 'Escape') {
+                    cancelCardRenameBtn.click();
+                }
+            }
+        });
+
+        // MODIFIED: Handle Delete Button Click - Ensure correct parameters
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectIdToDelete = cardElement.dataset.projectId;
+            const cardToRemove = cardElement; // Get reference to the card itself
+            console.log(`Delete button clicked for project: ${projectIdToDelete}, card element:`, cardToRemove);
+            if (projectIdToDelete && cardToRemove) {
+                 deleteProject(projectIdToDelete, cardToRemove); // Pass the specific card element
+            } else {
+                console.error("Missing projectId or cardElement for deletion.");
+            }
+            optionsMenu.classList.remove('active'); // Close menu
+        });
 
         projectListArea.appendChild(cardClone);
 
@@ -190,7 +361,22 @@ function setupHomeViewListeners() {
 
 function setupProjectViewListeners(projectId) {
     console.log("Setting up NEW project view listeners for:", projectId);
+    const storageKey = 'lairaProjects'; // Key for localStorage
+    let allProjects = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    let currentProject = allProjects.find(p => p.id === projectId);
+    if (!currentProject) {
+        alert('Error: Project not found!');
+        window.location.href = '/'; 
+        return;
+    }
+    console.log("Loaded current project data:", currentProject);
+    currentProject.notes = currentProject.notes || [];
+    currentProject.sources = currentProject.sources || [];
+    currentProject.chatHistory = currentProject.chatHistory || [];
+    currentProject.settings = currentProject.settings || { temperature: 0.2, max_output_tokens: 8192, top_p: 0.95, top_k: 40 };
+    currentProject.title = currentProject.title || projectId;
 
+    // --- References to DOM Elements (Keep existing references) --- 
     // Modal Triggers
     const addSourceBtn = document.querySelector('.sources-panel .add-source-btn');
     const settingsBtn = document.getElementById('settings-btn');
@@ -248,10 +434,84 @@ function setupProjectViewListeners(projectId) {
     const viewNoteBodyTextarea = document.getElementById('view-note-body-textarea');
     const saveViewNoteBtn = document.getElementById('save-view-note-btn');
 
-    // Simple in-memory store for notes (temporary)
-    let notesData = {}; // Stores { id: { title: '', body: '' } }
-    let nextNoteId = 1; // Simple ID generator
+    // --- Local State (Initialize from loaded project data) --- 
+    let notesData = {}; // Still use object for quick lookup by id in UI functions
+    let nextNoteId = 1; // Need to determine the next ID based on loaded notes
+    currentProject.notes.forEach(note => {
+        notesData[note.id] = note; // Populate local lookup
+        // Determine the highest existing numeric ID part
+        const idNum = parseInt(note.id.split('-')[1]);
+        if (!isNaN(idNum) && idNum >= nextNoteId) {
+            nextNoteId = idNum + 1;
+        }
+    });
+    console.log("Initialized notesData:", notesData, "Next ID:", nextNoteId);
+    
     let currentlyViewingNoteId = null;
+
+    // --- Helper Function to Save Project --- 
+    function saveCurrentProject() {
+        // Update modified date
+        currentProject.modifiedDate = new Date().toLocaleDateString();
+
+        // Find index of current project in the main list
+        const projectIndex = allProjects.findIndex(p => p.id === projectId);
+        if (projectIndex !== -1) {
+            // Update the project in the main list
+            allProjects[projectIndex] = currentProject;
+            // Save the entire updated list back to localStorage
+            localStorage.setItem(storageKey, JSON.stringify(allProjects));
+            console.log("Project saved to localStorage:", currentProject);
+        } else {
+            console.error("Could not find project in list to save.");
+        }
+    }
+
+    // --- Populate UI from Loaded Data --- 
+
+    // Populate Project Title
+    if (projectTitleDisplay) {
+        projectTitleDisplay.textContent = currentProject.title;
+        document.title = `Laira - ${currentProject.title}`; // Update page title
+    }
+
+    // Populate Notes List
+    if (notesList) {
+        notesList.innerHTML = ''; // Clear any default/template items
+        Object.values(notesData).forEach(note => renderNoteListItem(note));
+    }
+    checkNotesList(); // Update placeholder visibility
+
+    // Populate Sources List
+    if (sourceList) {
+        sourceList.innerHTML = ''; // Clear any defaults
+        currentProject.sources.forEach(source => {
+            // Assuming addSourceToList handles adding the UI element
+            // We might need a different function like renderSourceItem
+            addSourceToList(source.filename, source.status); // Pass status to UI function
+            // TODO: updateSourceListItemStatus based on source.status if it exists
+        });
+    }
+    checkSourceList(); // Update placeholder & chat state
+
+    // Populate Chat History (Example - needs refinement)
+    if (chatArea) {
+        chatArea.innerHTML = ''; // Clear default placeholder if history exists
+        if (currentProject.chatHistory.length > 0) {
+             currentProject.chatHistory.forEach(msg => addMessageToChat(msg.text, msg.sender));
+        } else {
+             // If no history, ensure the placeholder is visible (handled by enable/disable chat) 
+        }
+    }
+
+    // Populate Settings Modal (Example - needs refinement)
+    if (settingsForm) {
+        // TODO: Load settings from currentProject.settings and set form values
+        console.log("TODO: Load settings into modal:", currentProject.settings);
+        // Example:
+        // if (temperatureSlider) temperatureSlider.value = currentProject.settings.temperature || 0.2;
+        // Update slider displays as well
+    }
 
     // --- Modal Visibility Functions ---
     function showModal(modalElement) {
@@ -307,53 +567,123 @@ function setupProjectViewListeners(projectId) {
         }
     }
 
+    // MODIFIED: Save uploaded file info to project data
     function uploadFile(file) {
-        // ... Keep existing uploadFile logic (validation, formData, fetch, UI update) ...
          console.log(`Uploading: ${file.name}`);
-         // Placeholder: Just add to list for now
-         addSourceToList(file.name);
-          // Simulate success after short delay
+         // Add to UI list immediately (optimistic)
+         const sourceData = { filename: file.name, status: 'uploading' }; // Basic data
+         addSourceToList(sourceData.filename, sourceData.status); // Pass status to UI function
+
+         // Add to project data and save immediately
+         currentProject.sources.push(sourceData);
+         saveCurrentProject(); 
+
+         // Simulate upload process & update status 
+         // TODO: Replace setTimeout with actual fetch API call to backend
          setTimeout(() => {
-             updateSourceListItemStatus(file.name, true);
-             checkSourceList(); // Update UI based on sources
-         }, 500);
+             // Find the source in the project data to update its status
+             const uploadedSource = currentProject.sources.find(s => s.filename === file.name);
+             if (uploadedSource) {
+                 uploadedSource.status = 'success'; // Or 'error'
+                 saveCurrentProject(); // Save the status update
+                 updateSourceListItemStatus(file.name, true); // Update UI based on final status
+             } else {
+                 console.error("Could not find source in project data after simulated upload:", file.name);
+                 updateSourceListItemStatus(file.name, false); // Reflect error in UI
+             }
+             checkSourceList(); // Update UI based on sources count/status
+         }, 1500); // Simulate 1.5 second upload
     }
     
-    // --- Source List Management ---
-    function addSourceToList(filename) {
+    // MODIFIED: Accept status for UI display
+    function addSourceToList(filename, status = null) {
         if (!sourceList) return;
+        if (sourceList.querySelector(`li[data-filename="${CSS.escape(filename)}"]`)) return;
         const listItem = document.createElement('li');
         listItem.dataset.filename = filename;
+        // Add icon container
         listItem.innerHTML = `
-            <span class="source-icon"><i class="fas fa-file-alt"></i></span> 
-            <span class="source-delete-icon" title="Delete source"><i class="fas fa-trash-alt"></i></span>
-            <span class="source-name">${filename}</span>
-            <span class="source-status">Uploading...</span>
+           <div class="item-icon-container">
+                <span class="source-icon"><i class="fas fa-file-alt"></i></span> 
+                <button class="source-delete-icon" title="Delete Source"><i class="fas fa-trash-alt"></i></button>
+           </div>
+           <span class="source-name"></span>
+           <span class="source-status"></span>
         `;
+        const nameSpan = listItem.querySelector('.source-name');
+        if (nameSpan) nameSpan.textContent = filename;
+
+        // Update status text if provided
+        const statusSpan = listItem.querySelector('.source-status');
+        if (statusSpan) {
+            if (status === 'uploading') {
+                statusSpan.textContent = 'Uploading...';
+            } else if (status === 'success') {
+                 statusSpan.remove(); // Remove status if successful
+            } else if (status === 'error') {
+                 statusSpan.textContent = 'Failed';
+                 listItem.style.opacity = '0.5';
+                 listItem.title = "Upload failed";
+            } else {
+                statusSpan.remove(); // Remove status if null/undefined/other
+            }
+        }
+
          // Update icon based on extension
          const iconEl = listItem.querySelector('.source-icon i');
          if (filename.toLowerCase().endsWith('.pdf')) iconEl.className = 'fas fa-file-pdf';
          
-         listItem.querySelector('.source-delete-icon').addEventListener('click', handleDeleteSource);
+         // Add delete listener
+         const deleteIcon = listItem.querySelector('.source-delete-icon');
+         if (deleteIcon) {
+             deleteIcon.addEventListener('click', handleDeleteSource);
+         }
+         
          sourceList.appendChild(listItem);
-         checkSourceList();
+         checkSourceList(); // Update placeholder and chat input state
     }
 
+    // MODIFIED: Update UI based on status (called after upload attempt)
     function updateSourceListItemStatus(filename, success) {
-         const item = sourceList?.querySelector(`li[data-filename="${filename}"]`);
+         const item = sourceList?.querySelector(`li[data-filename="${CSS.escape(filename)}"]`);
          if (!item) return;
          const statusEl = item.querySelector('.source-status');
-         if (statusEl) statusEl.remove(); // Remove status indicator on completion
-         item.style.opacity = success ? '1' : '0.5';
-         if (!success) item.title = "Upload failed"; 
+         
+         if (success) {
+             if (statusEl) statusEl.remove(); // Remove status indicator on success
+             item.style.opacity = '1';
+             item.title = ''; // Clear any error title
+         } else {
+             if (statusEl) { 
+                 statusEl.textContent = "Failed"; 
+             } else { 
+                 // If status element was already removed, maybe add it back?
+                 // Or just ensure the visual state indicates failure:
+                 console.warn("Status element missing on failed upload for:", filename);
+             }
+             item.style.opacity = '0.5';
+             item.title = "Upload failed"; 
+         }
     }
 
+    // MODIFIED: Delete source from project data
     function handleDeleteSource(event) {
          const listItem = event.currentTarget.closest('li');
          const filename = listItem?.dataset.filename;
-         if (!filename || !confirm(`Delete ${filename}?`)) return;
-         console.log(`Deleting ${filename}`);
-         // TODO: Add fetch call to backend
+         if (!filename || !confirm(`Are you sure you want to delete source "${filename}"?`)) return;
+         console.log(`Deleting source ${filename}`);
+
+         // Remove from project data
+         const sourceIndex = currentProject.sources.findIndex(s => s.filename === filename);
+         if (sourceIndex !== -1) {
+             currentProject.sources.splice(sourceIndex, 1);
+             saveCurrentProject(); // Persist the change
+             console.log(`Removed source ${filename} from project data.`);
+         } else {
+             console.warn(`Source ${filename} not found in project data.`);
+         }
+
+         // Remove from UI
          listItem.remove();
          checkSourceList();
     }
@@ -469,6 +799,8 @@ function setupProjectViewListeners(projectId) {
                 console.log(`TODO: Send new title to backend: ${newTitle}`);
                 // TODO: Add fetch call to backend to save newTitle
                 // Handle potential backend errors and revert UI if needed
+                currentProject.title = newTitle;
+                saveCurrentProject(); 
             } else {
                 projectTitleDisplay.textContent = originalTitle; // Revert if empty or unchanged
             }
@@ -616,154 +948,150 @@ function setupProjectViewListeners(projectId) {
 
     function showNoteEditor() {
         if (!notesListView || !noteEditorView || !noteEditorTitle || !noteEditorBody) return;
-        // Reset editor for a new note
         noteEditorTitle.textContent = 'New Note';
         noteEditorBody.value = '';
-        // Hide list, show editor
         notesListView.style.display = 'none';
-        noteEditorView.style.display = 'flex'; // Use flex as per CSS
-        noteEditorTitle.focus(); // Focus on title first
+        noteEditorView.style.display = 'flex'; 
+        noteEditorTitle.focus();
     }
 
     function showNotesList() {
         if (!notesListView || !noteEditorView) return;
-        // Hide editor, show list
         noteEditorView.style.display = 'none';
         notesListView.style.display = 'block';
-        checkNotesList(); // Make sure placeholder visibility is correct
+        checkNotesList(); 
     }
 
+    // MODIFIED: saveNote (from editor view)
     function saveNote() {
         if (!noteEditorTitle || !noteEditorBody) return;
         const title = noteEditorTitle.textContent.trim();
         const body = noteEditorBody.value.trim();
-
-        if (!title && !body) {
-            // If both are empty, treat as cancel/delete
+        if (!title && !body) { 
             console.log("Note empty, discarding.");
-            showNotesList(); // Just go back to list view
-            return; 
+            showNotesList(); return; 
         }
-
-        // Use title or placeholder if title is empty
         const finalTitle = title || "Untitled Note"; 
-
-        // TODO: Replace placeholder with actual save logic (backend call)
-        console.log(`Saving Note (Placeholder):
-Title: ${finalTitle}
-Body: ${body}`);
-        addNoteToList(finalTitle, body); // Add to UI list (pass body too)
+        const newNoteId = `note-${nextNoteId++}`;
+        const newNoteData = { id: newNoteId, title: finalTitle, body: body };
         
-        showNotesList(); // Switch back to list view after save
+        // Update local cache
+        notesData[newNoteId] = newNoteData;
+        
+        // Update project data
+        currentProject.notes.push(newNoteData);
+        saveCurrentProject(); // Save project
+        
+        // Add to UI list
+        renderNoteListItem(newNoteData); 
+        
+        showNotesList(); // Switch back
     }
 
-    function deleteNote() {
-        if (!confirm("Are you sure you want to delete this note? This cannot be undone.")) {
-            return;
-        }
-        // TODO: Add logic to delete note from backend if it was already saved
-        console.log("Deleting Note (Placeholder)");
-        showNotesList(); // Switch back to list view after delete/cancel
+    // deleteNote (from editor view - placeholder)
+    function deleteNote() { 
+        if (!confirm("Are you sure you want to discard this new note?")) return;
+        console.log("Discarding new note (editor view).");
+        showNotesList(); // Just switch back without saving
     }
 
-    // MODIFIED: Creates the new list item structure
-    function addNoteToList(title, body) {
-        if (!notesList) return;
-
-        const noteId = `note-${nextNoteId++}`; // Generate a unique ID
-        notesData[noteId] = { title, body }; // Store data
-
-        const listItem = document.createElement('li');
-        listItem.classList.add('note-list-item');
-        listItem.dataset.noteId = noteId;
-
-        listItem.innerHTML = `
-            <span class="note-icon"><i class="fas fa-sticky-note"></i></span>
+    // Creates the UI element from note data, DOES NOT save.
+    function renderNoteListItem(noteData) {
+         if (!notesList || !noteData || !noteData.id) return;
+         if (notesList.querySelector(`li[data-note-id="${noteData.id}"]`)) return;
+         const listItem = document.createElement('li');
+         listItem.classList.add('note-list-item');
+         listItem.dataset.noteId = noteData.id;
+         // Add icon container
+         listItem.innerHTML = `
+            <div class="item-icon-container">
+                 <span class="note-icon"><i class="fas fa-sticky-note"></i></span>
+                 <button class="note-delete-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
+            </div>
             <span class="note-item-title"></span>
-            <button class="note-delete-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
-        `;
-
-        // Set title safely to prevent XSS
-        const titleSpan = listItem.querySelector('.note-item-title');
-        if (titleSpan) titleSpan.textContent = title;
-        
-        notesList.appendChild(listItem);
-        checkNotesList(); // Update placeholder visibility
+         `;
+         const titleSpan = listItem.querySelector('.note-item-title');
+         if (titleSpan) titleSpan.textContent = noteData.title || "Untitled Note";
+         notesList.appendChild(listItem);
     }
 
-    // NEW: Function to delete a note from the list and data store
+    // MODIFIED: deleteNoteFromList (from list item delete button)
     function deleteNoteFromList(noteId) {
         const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
         if (listItem) {
-            listItem.remove();
-            delete notesData[noteId]; // Remove from data store
-            console.log(`Deleted note ${noteId} (frontend)`);
-            // TODO: Add backend call to delete permanently
-            checkNotesList();
+            listItem.remove(); // Remove from UI
+
+            // Remove from local cache
+            const deletedFromCache = delete notesData[noteId]; 
+            if (!deletedFromCache) { console.warn(`Note ${noteId} not found in notesData cache.`); }
+
+            // Remove from project data and save
+            const noteIndex = currentProject.notes.findIndex(n => n.id === noteId);
+            if (noteIndex !== -1) {
+                currentProject.notes.splice(noteIndex, 1);
+                saveCurrentProject(); // Persist the change
+                console.log(`Deleted note ${noteId} from project data`);
+            } else {
+                 console.warn(`Note ${noteId} not found in currentProject.notes to delete.`);
+            }
+            checkNotesList(); // Update placeholder
         } else {
             console.warn(`Could not find list item for note ID: ${noteId}`);
         }
     }
 
-    // NEW: Function to show the note view modal (MODIFIED)
+    // showNoteViewModal (ensure reads from notesData) - NO CHANGE FROM PREVIOUS EDIT
     function showNoteViewModal(noteId) {
-        const note = notesData[noteId];
-        if (!note || !viewNoteModal || !viewNoteTitle || !viewNoteBodyTextarea) {
-            console.error("Could not find note data or modal elements for ID:", noteId);
-            return;
-        }
-
+        const note = notesData[noteId]; 
+        if (!note || !viewNoteModal || !viewNoteTitle || !viewNoteBodyTextarea) { console.error("Missing note data/modal elements for:", noteId); return; }
         currentlyViewingNoteId = noteId;
-
         viewNoteTitle.textContent = note.title;
         viewNoteBodyTextarea.value = note.body;
-
         showModal(viewNoteModal);
     }
 
-    // NEW: Function to save changes from the note view modal
+    // MODIFIED: saveNoteChanges (from view modal)
     function saveNoteChanges() {
-        if (!currentlyViewingNoteId || !viewNoteTitle || !viewNoteBodyTextarea) {
-            console.error("No note ID or modal elements found to save changes.");
-            return;
-        }
+         if (!currentlyViewingNoteId || !viewNoteTitle || !viewNoteBodyTextarea) { return; }
+         const noteId = currentlyViewingNoteId;
+         const newTitle = viewNoteTitle.textContent.trim() || "Untitled Note";
+         const newBody = viewNoteBodyTextarea.value.trim();
+         
+         // Update local cache FIRST
+         if (notesData[noteId]) {
+             notesData[noteId].title = newTitle;
+             notesData[noteId].body = newBody;
+             console.log(`Updated note ${noteId} in local cache:`, notesData[noteId]);
 
-        const noteId = currentlyViewingNoteId;
-        const newTitle = viewNoteTitle.textContent.trim();
-        const newBody = viewNoteBodyTextarea.value.trim();
+            // Find and update data store in currentProject.notes array
+            const noteToUpdate = currentProject.notes.find(n => n.id === noteId);
+            if (noteToUpdate) {
+                noteToUpdate.title = newTitle;
+                noteToUpdate.body = newBody;
+                saveCurrentProject(); // Persist the change
+                console.log(`Updated note ${noteId} in project data.`);
 
-        // Update data store
-        if (notesData[noteId]) {
-            notesData[noteId].title = newTitle;
-            notesData[noteId].body = newBody;
-            console.log(`Updated note ${noteId} (frontend):`, notesData[noteId]);
-
-            // Update list item display
-            const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
-            const titleSpan = listItem?.querySelector('.note-item-title');
-            if (titleSpan) {
-                titleSpan.textContent = newTitle || "Untitled Note";
+                // Update list item display in UI
+                const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
+                const titleSpan = listItem?.querySelector('.note-item-title');
+                if (titleSpan) { titleSpan.textContent = newTitle; }
+                
+            } else { 
+                console.error("Consistency error: Note found in cache but not in project data:", noteId); 
+                // Attempt recovery: Add the note from cache back to project data
+                currentProject.notes.push(notesData[noteId]);
+                saveCurrentProject();
+                console.log(`Recovered note ${noteId} by adding from cache to project data.`);
             }
-
-            // TODO: Add backend call to save changes
-
-        } else {
-            console.error("Could not find note data to update for ID:", noteId);
-        }
-
-        hideModal(viewNoteModal);
-        currentlyViewingNoteId = null;
-    }
-
-    function checkNotesList() {
-        const hasNotes = notesList && notesList.children.length > 0;
-        if (notesListPlaceholder) {
-            notesListPlaceholder.style.display = hasNotes ? 'none' : 'block';
-        }
-         if (notesList) {
-            notesList.style.display = hasNotes ? 'block' : 'none';
+         } else { 
+              console.error("Note ID not found in local cache notesData during save:", noteId); 
+              // Cannot recover if not in cache
          }
+         hideModal(viewNoteModal);
+         currentlyViewingNoteId = null;
     }
+
+    function checkNotesList() { const hasNotes = notesList && notesList.children.length > 0; if(notesListPlaceholder) notesListPlaceholder.style.display = hasNotes ? 'none' : 'block'; if (notesList) notesList.style.display = hasNotes ? 'block' : 'none';}
 
     // Event listener for the Add Note button (Changed)
     if (addNoteBtn) {
@@ -775,17 +1103,19 @@ Body: ${body}`);
     // Event listeners for the Note Editor buttons
     if (saveNoteBtn) {
         saveNoteBtn.addEventListener('click', saveNote);
-    } else {
-        console.warn("Save Note button not found.");
-    }
-    
+    } else { console.warn("Save Note button (editor) not found."); }
     if (deleteNoteBtn) {
         deleteNoteBtn.addEventListener('click', deleteNote);
+    } else { console.warn("Delete Note button (editor) not found."); }
+
+    // NEW: Add listener for the Save Changes button in the VIEW modal
+    if (saveViewNoteBtn) {
+        saveViewNoteBtn.addEventListener('click', saveNoteChanges);
     } else {
-        console.warn("Delete Note button not found.");
+        console.warn("Save Changes button (view modal) not found.");
     }
 
-    // NEW: Event delegation for clicks within the notes list
+    // Event delegation for clicks within the notes list
     if (notesList) {
         notesList.addEventListener('click', (event) => {
             const target = event.target;
@@ -829,3 +1159,10 @@ function showTemporaryStatus(message, isError = false, duration = 3000) {
      statusElement.style.opacity = '1';
      setTimeout(() => { statusElement.style.opacity = '0'; }, duration);
  } 
+
+// Close menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.card-options-btn') && !e.target.closest('.card-options-menu')) {
+        document.querySelectorAll('.card-options-menu.active').forEach(menu => menu.classList.remove('active'));
+    }
+}); 
