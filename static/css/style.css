@@ -476,29 +476,34 @@ body.dark-theme .placeholder-box i {
     text-align: center; /* Center-align content */
 }
 
-/* Welcome Heading */
+/* Main Title Styling on Home Page */
 .home-container h1 {
-    font-size: 4.4em; 
-    font-weight: 500;
-    margin-bottom: 60px; 
-    line-height: 1.2; 
-    /* Apply gradient to the whole H1 */
-    background: linear-gradient(90deg, #ff8c00, #ffd700); /* Dark Orange to Dark Yellow */
-    -webkit-background-clip: text; 
-    -moz-background-clip: text;    
-    -ms-background-clip: text;     
+    font-size: 4.4em; /* Restored original size */
+    font-weight: 500; /* Restored original weight */
+    text-align: center; /* Keep centered */
+    margin-bottom: 60px; /* Restored original margin */
+    line-height: 1.2; /* Restored original line height */
+    display: inline-block; /* Keep inline-block for gradient */
+    /* NEW: Red-to-orange gradient */
+    background: linear-gradient(to right, orangered, #FFA500); /* Redder start */
+    -webkit-background-clip: text;
     background-clip: text;
-    color: transparent; 
-    -webkit-text-fill-color: transparent; 
-    display: inline-block; 
+    -webkit-text-fill-color: transparent;
+    /* Fallback color */
+    color: orangered; 
 }
-/* No dark theme override needed for gradient */
 
-.home-container h1 .subtitle {
-    font-size: 70%; /* Make subtitle 30% smaller */
-    font-weight: 400; /* Lighter weight for subtitle */
+.home-container .subtitle {
     display: block; /* Ensure it stays on its own line */
-    /* The gradient is inherited from the parent H1 */
+    font-size: 70%; /* Restored original relative size */
+    font-weight: 400; /* Restored original weight */
+     /* Apply the gradient explicitly for cross-browser safety */
+     background: linear-gradient(to right, orangered, #FFA500); /* Redder start */
+     -webkit-background-clip: text;
+     background-clip: text;
+     -webkit-text-fill-color: transparent;
+     /* Fallback color */
+     color: orangered;
 }
 
 .notebook-section {
@@ -864,6 +869,8 @@ body.dark-theme .user-message {
     color: var(--text-color-light);
     border-bottom-left-radius: 4px;
     align-self: flex-start;
+    position: relative; /* Needed for absolute positioning of pin button */
+    padding-right: 40px; /* Make space for the button */
 }
 body.dark-theme .bot-message {
     background-color: var(--panel-bg-dark);
@@ -891,6 +898,39 @@ body.dark-theme .message code {
 .message a {
     color: inherit;
     text-decoration: underline;
+}
+
+/* NEW: Pin Message Button */
+.pin-message-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    opacity: 0;
+    visibility: hidden;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    font-size: 0.85em;
+    line-height: 1;
+    transition: opacity 0.2s ease, visibility 0.2s ease, background-color 0.2s ease;
+}
+body.dark-theme .pin-message-btn {
+    color: var(--secondary-text-dark);
+}
+/* Show button on message hover */
+.bot-message:hover .pin-message-btn {
+    opacity: 0.7;
+    visibility: visible;
+}
+.pin-message-btn:hover {
+    opacity: 1;
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .pin-message-btn:hover {
+    background-color: var(--hover-bg-dark);
 }
 
 .input-area {

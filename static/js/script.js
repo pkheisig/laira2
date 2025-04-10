@@ -291,7 +291,7 @@ function setupHomeViewListeners() {
     }
 
 
-    // MODIFIED: Function to render a single project card (mostly unchanged, added deleteProject call)
+    // MODIFIED: Function to render a single project card
     function renderProjectCard(projectData) {
         if (!projectListArea || !projectCardTemplate) {
             console.error("Project list area or card template not found.");
@@ -306,32 +306,20 @@ function setupHomeViewListeners() {
         const optionsMenu = cardClone.querySelector('.card-options-menu');
         const renameBtn = cardClone.querySelector('.rename-card-btn');
         const deleteBtn = cardClone.querySelector('.delete-card-btn');
-        const cardBody = cardClone.querySelector('.card-body'); 
-        const saveCardRenameBtn = document.createElement('button');
-        saveCardRenameBtn.innerHTML = '<i class="fas fa-check"></i>';
-        saveCardRenameBtn.className = 'card-inline-btn save-card-rename-btn';
-        saveCardRenameBtn.title = 'Save Name';
-        saveCardRenameBtn.style.display = 'none';
-        const cancelCardRenameBtn = document.createElement('button');
-        cancelCardRenameBtn.innerHTML = '<i class="fas fa-times"></i>';
-        cancelCardRenameBtn.className = 'card-inline-btn cancel-card-rename-btn';
-        cancelCardRenameBtn.title = 'Cancel Rename';
-        cancelCardRenameBtn.style.display = 'none';
 
-        if (!cardElement || !titleElement || !dateElement || !optionsBtn || !optionsMenu || !renameBtn || !deleteBtn || !cardBody) {
+        if (!cardElement || !titleElement || !dateElement || !optionsBtn || !optionsMenu || !renameBtn || !deleteBtn) {
             console.error("Missing card elements");
             return;
         }
 
         cardElement.dataset.projectId = projectData.id; 
         titleElement.textContent = projectData.title;
-        // Format date for display
         const modDate = new Date(projectData.modifiedDate);
         dateElement.textContent = modDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-        // Handle click to navigate
+        // Handle click to navigate (ignore clicks on controls or when editing)
         cardElement.addEventListener('click', (e) => {
-            if (e.target.closest('.card-options-btn') || e.target.closest('.card-options-menu') || e.target.closest('.card-inline-btn') || cardElement.classList.contains('editing')) {
+            if (e.target.closest('.card-options-btn') || e.target.closest('.card-options-menu') || cardElement.classList.contains('editing')) {
                 return; 
             }
             window.location.href = `/project/${projectData.id}`;
@@ -346,84 +334,94 @@ function setupHomeViewListeners() {
             optionsMenu.classList.toggle('active');
         });
 
-        // Handle Rename Button Click 
-        renameBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            console.log(`Card Rename action for project ${projectData.id}`);
-            optionsMenu.classList.remove('active'); 
-            
-            cardElement.classList.add('editing'); 
-            titleElement.contentEditable = 'true';
-            titleElement.dataset.originalTitle = titleElement.textContent; 
-            titleElement.focus();
-            document.execCommand('selectAll', false, null); 
+        // --- Renaming Logic --- 
 
-            cardBody.appendChild(saveCardRenameBtn);
-            cardBody.appendChild(cancelCardRenameBtn);
-            saveCardRenameBtn.style.display = 'inline-flex';
-            cancelCardRenameBtn.style.display = 'inline-flex';
-            optionsBtn.style.display = 'none'; // Hide options btn
-        });
-
-        // Handle Save Rename Click
-        saveCardRenameBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
+        // Function to finalize renaming (save or cancel)
+        function finalizeRename(saveChanges) {
             const newTitle = titleElement.textContent.trim();
             const originalTitle = titleElement.dataset.originalTitle;
             const projectIdToRename = cardElement.dataset.projectId;
 
+            // Always finish editing state
             titleElement.contentEditable = 'false';
             cardElement.classList.remove('editing');
-            saveCardRenameBtn.style.display = 'none';
-            cancelCardRenameBtn.style.display = 'none';
-            optionsBtn.style.display = ''; // Restore options btn
+            optionsBtn.style.display = ''; // Restore options button visibility
+            delete titleElement.dataset.originalTitle;
+             // Remove temporary listeners
+            titleElement.removeEventListener('keydown', handleKeyDown);
+            titleElement.removeEventListener('blur', handleBlur);
 
-            if (newTitle && newTitle !== originalTitle) {
+            if (saveChanges && newTitle && newTitle !== originalTitle) {
+                // Save the changes
                 titleElement.textContent = newTitle; // Optimistic UI
                 try {
                     let projects = JSON.parse(localStorage.getItem(storageKey) || '[]');
                     const projectIndex = projects.findIndex(p => p.id === projectIdToRename);
-
                     if (projectIndex !== -1) {
                         projects[projectIndex].title = newTitle;
-                         // Update modified date on rename
                         projects[projectIndex].modifiedDate = new Date().toISOString();
                         localStorage.setItem(storageKey, JSON.stringify(projects));
                         console.log(`Renamed project ${projectIdToRename} to "${newTitle}". Saved.`);
-                         // Re-fetch and render to update date and potentially sort order
-                        fetchAndRenderProjects();
+                        fetchAndRenderProjects(); // Re-render to update date/sort order
                     } else {
                         console.error(`Could not find project ${projectIdToRename} to rename.`);
                         titleElement.textContent = originalTitle; // Revert UI
                     }
                 } catch (error) {
-                     console.error("Error saving rename:", error);
-                     titleElement.textContent = originalTitle; // Revert UI on error
-                     alert("Error saving rename.");
+                    console.error("Error saving rename:", error);
+                    titleElement.textContent = originalTitle; // Revert UI on error
+                    alert("Error saving rename.");
                 }
             } else {
-                 titleElement.textContent = originalTitle; // Revert if empty or unchanged
+                // Cancel or no changes made, revert to original
+                titleElement.textContent = originalTitle || projectData.title; // Revert UI
             }
-             // Clean up buttons from DOM
-            saveCardRenameBtn.remove();
-            cancelCardRenameBtn.remove();
+        }
+        
+        // Enter key handler
+        function handleKeyDown(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent newline
+                finalizeRename(true); // Save changes
+            } else if (e.key === 'Escape') {
+                 finalizeRename(false); // Cancel changes (revert)
+            }
+        }
+
+        // Blur handler (clicking outside)
+        function handleBlur() {
+            // Use setTimeout to allow potential click on options button to register first
+            // otherwise blur might fire before button click
+            setTimeout(() => {
+                 // Check if still editing (might have been finalized by Enter)
+                 if (cardElement.classList.contains('editing')) {
+                     const newTitle = titleElement.textContent.trim();
+                     const originalTitle = titleElement.dataset.originalTitle;
+                     // Save if title is different and not empty, otherwise cancel
+                     finalizeRename(newTitle && newTitle !== originalTitle);
+                 }
+            }, 100); // Small delay
+        }
+
+        // Handle Rename Button Click in options menu
+        renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            console.log(`Card Rename action for project ${projectData.id}`);
+            optionsMenu.classList.remove('active'); 
+            
+            // Start editing
+            cardElement.classList.add('editing'); 
+            titleElement.contentEditable = 'true';
+            titleElement.dataset.originalTitle = titleElement.textContent; 
+            titleElement.focus();
+            document.execCommand('selectAll', false, null); 
+            optionsBtn.style.display = 'none'; // Hide options btn while editing
+
+            // Add temporary listeners for Enter and Blur
+            titleElement.addEventListener('keydown', handleKeyDown);
+            titleElement.addEventListener('blur', handleBlur);
         });
-
-         // Handle Cancel Rename Click
-         cancelCardRenameBtn.addEventListener('click', (e) => {
-             e.stopPropagation();
-             titleElement.textContent = titleElement.dataset.originalTitle; // Revert
-             titleElement.contentEditable = 'false';
-             cardElement.classList.remove('editing');
-             saveCardRenameBtn.style.display = 'none';
-             cancelCardRenameBtn.style.display = 'none';
-             optionsBtn.style.display = ''; // Restore options button
-             // Clean up buttons from DOM
-             saveCardRenameBtn.remove();
-             cancelCardRenameBtn.remove();
-         });
-
-
+        
         // Handle Delete Button Click
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -925,35 +923,116 @@ function setupProjectViewListeners(projectId) {
     }
 
     function addMessageToChat(text, sender) {
-        // ... Keep existing addMessageToChat logic (placeholder removal, class assignment, markdown, scroll) ...
         if (!chatArea) return;
-        const placeholder = chatArea.querySelector('.placeholder-box'); 
-        if (placeholder) placeholder.style.display = 'none'; // Hide placeholder
 
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
-        // Basic formatting (expand later)
-        messageDiv.textContent = text; 
-        chatArea.appendChild(messageDiv);
-        chatArea.scrollTop = chatArea.scrollHeight;
+        const placeholder = chatArea.querySelector('#chat-placeholder');
+        if (placeholder) placeholder.remove();
+
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+        
+        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>');       
+        messageElement.innerHTML = formattedText; 
+
+        // Add pin button to bot messages
+        if (sender === 'bot') {
+            const pinButton = document.createElement('button');
+            pinButton.className = 'pin-message-btn';
+            pinButton.title = 'Pin to Notes';
+            pinButton.innerHTML = '<i class="fas fa-thumbtack"></i>';
+            pinButton.dataset.messageText = text; // Store original raw text
+            messageElement.appendChild(pinButton); 
+        }
+
+        chatArea.appendChild(messageElement);
+        chatArea.scrollTop = chatArea.scrollHeight; 
+        return messageElement; 
     }
 
     function sendMessage() {
-        // ... Keep existing sendMessage logic (get value, add user msg, clear input, show thinking, fetch, handle response/error) ...
-         if (!userInput || !chatArea || !projectId || userInput.disabled) return;
-         const question = userInput.value.trim();
-         if (!question) return;
-         addMessageToChat(question, 'user');
-         userInput.value = '';
-         adjustTextareaHeight();
-         // Placeholder for thinking/fetch...
-         setTimeout(() => addMessageToChat(`Thinking about "${question}"... (Response placeholder)`, 'bot'), 500);
+        const userText = userInput.value.trim();
+        if (!userText || userInput.disabled) return; // Add check for disabled
+
+        // Add user message to UI and history array
+        addMessageToChat(userText, 'user');
+        currentProject.chatHistory.push({ sender: 'user', text: userText }); 
+        // Don't save yet - wait for bot response
+
+        userInput.value = ''; // Clear input
+        adjustTextareaHeight(); // Reset height
+        disableChatInput(); // Disable while waiting for bot
+
+        // Add placeholder for bot thinking
+        const botThinkingMessage = addMessageToChat('Thinking...', 'bot'); 
+        if (botThinkingMessage) botThinkingMessage.classList.add('thinking');
+
+        // Simulate backend call and response
+        // TODO: Replace with actual fetch API call to /ask/<project_id>
+        console.log(`Simulating fetch to /ask/${projectId} with question:`, userText);
+        setTimeout(() => {
+            const botResponseText = `Laira's simulated answer to: \"${userText}\"`;
+            console.log("Simulated bot response received:", botResponseText);
+            
+            // Remove thinking message
+            if (botThinkingMessage) {
+                 console.log("Removing thinking message");
+                 botThinkingMessage.remove();
+            }
+
+            // Add bot response to UI and history array
+            addMessageToChat(botResponseText, 'bot'); 
+            currentProject.chatHistory.push({ sender: 'bot', text: botResponseText });
+            
+            // --- Save project data AFTER both messages are in history ---
+            saveCurrentProject(); 
+
+            enableChatInput(); // Re-enable input
+            userInput.focus(); // Focus back on input
+            chatArea.scrollTop = chatArea.scrollHeight; // Scroll to bottom
+        }, 1500); // Simulate 1.5 second delay
     }
 
     if (sendButton && userInput) {
         sendButton.addEventListener('click', sendMessage);
         userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
         userInput.addEventListener('input', adjustTextareaHeight);
+    }
+
+    // Add Event listener for pinning messages
+    if (chatArea && notesList) { // Ensure necessary elements exist
+        chatArea.addEventListener('click', (e) => {
+            const pinButton = e.target.closest('.pin-message-btn');
+            if (pinButton) {
+                e.stopPropagation(); 
+                const messageText = pinButton.dataset.messageText;
+                if (!messageText) {
+                    console.error("Could not find message text on pin button.");
+                    return;
+                }
+
+                // Generate Title (First sentence or ~50 chars)
+                const sentences = messageText.split(/[.!?]/); 
+                let noteTitle = sentences[0]?.trim();
+                if (!noteTitle || noteTitle.length > 60) {
+                     noteTitle = messageText.substring(0, 50).trim() + (messageText.length > 50 ? '...' : '');
+                }
+                if (!noteTitle) noteTitle = "Pinned Note"; 
+
+                const noteBody = messageText; 
+                const noteId = `note-${nextNoteId++}`;
+                const newNoteData = { id: noteId, title: noteTitle, body: noteBody };
+
+                console.log("Pinning message as new note:", newNoteData);
+
+                 notesData[noteId] = newNoteData;
+                 currentProject.notes.push(newNoteData);
+                 saveCurrentProject(); 
+                 renderNoteListItem(newNoteData); 
+                 checkNotesList(); 
+                 showTemporaryStatus("Note created from pinned message.", false, 2500);
+            }
+        });
     }
 
     function adjustTextareaHeight() {
