@@ -848,17 +848,20 @@ body.dark-theme .source-status {
 }
 .message {
     padding: 10px 15px;
+    margin-bottom: 10px;
     border-radius: 18px;
-    max-width: 85%;
-    line-height: 1.5;
+    max-width: 75%;
+    position: relative;
+    display: flex; /* Use flex for icon alignment */
+    align-items: flex-start; /* Align items to the top */
     word-wrap: break-word;
 }
 .user-message {
     background-color: var(--accent-color-light);
     color: var(--button-primary-text-light);
-    border-bottom-right-radius: 4px;
     align-self: flex-end;
     margin-left: auto;
+    border-bottom-right-radius: 5px;
 }
 body.dark-theme .user-message {
      background-color: var(--accent-color-dark);
@@ -867,10 +870,8 @@ body.dark-theme .user-message {
 .bot-message {
     background-color: var(--input-bg-light);
     color: var(--text-color-light);
-    border-bottom-left-radius: 4px;
     align-self: flex-start;
-    position: relative; /* Needed for absolute positioning of pin button */
-    padding-right: 40px; /* Make space for the button */
+    border-bottom-left-radius: 5px;
 }
 body.dark-theme .bot-message {
     background-color: var(--panel-bg-dark);
@@ -1840,4 +1841,162 @@ body.dark-theme .list-inline-btn {
 body.dark-theme .list-inline-btn:hover {
     background-color: var(--hover-bg-dark);
     color: var(--text-color-dark);
+}
+
+/* Message Styling */
+.message {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 18px;
+    max-width: 75%;
+    position: relative;
+    display: flex; /* Use flex for icon alignment */
+    align-items: flex-start; /* Align items to the top */
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: var(--accent-color);
+    color: var(--text-color-on-accent);
+    align-self: flex-end;
+    margin-left: auto;
+    border-bottom-right-radius: 5px;
+}
+
+.bot-message {
+    background-color: var(--secondary-bg-color);
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 5px;
+}
+
+.message-display {
+    display: flex;
+    flex-direction: column; /* Content above actions */
+    width: 100%; /* Take full width within the message bubble */
+}
+
+.message-content {
+    padding-bottom: 5px; /* Space between text and potential actions */
+}
+
+.message-actions {
+    display: flex; 
+    flex-direction: row; /* Explicitly row */
+    align-items: center; 
+    justify-content: flex-end; 
+    gap: 5px; 
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    margin-left: auto; 
+    margin-top: 4px; 
+    padding: 0;
+    border: none; 
+    width: auto; /* Allow container to size based on content */
+    height: auto;
+}
+
+/* Hide actions while message is in 'thinking' state */
+.message-thinking .message-actions {
+    display: none; 
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.message-actions .action-btn {
+    /* Button itself */
+    display: inline-flex; /* Treat as inline block within flex row */
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Prevent shrinking */
+    flex-grow: 0; /* Prevent growing */
+    
+    /* Appearance */
+    background: none;
+    border: none;
+    padding: 2px;
+    margin: 0;
+    line-height: 1; 
+    cursor: pointer;
+    color: var(--icon-color-light); 
+    font-size: 0.9em; 
+    border-radius: 3px;
+    width: auto; /* Size based on icon/padding */
+    height: auto;
+}
+
+/* Specific color for user message icons if needed */
+.user-message .message-actions .action-btn {
+    color: var(--text-color-on-accent); 
+}
+
+/* Bot message icons - ensure pin is white/light */
+.bot-message .message-actions .action-btn {
+     color: var(--icon-color-light); 
+}
+
+.message-actions .action-btn:hover {
+    background-color: var(--hover-bg-color); 
+}
+
+/* Edit View Styling */
+.message-edit-view {
+    width: 100%;
+    padding: 5px 0; /* Padding around the edit area */
+}
+
+.edit-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--input-bg-color);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.95em;
+    resize: none; /* Disable manual resize */
+    box-sizing: border-box; /* Include padding and border in width */
+    margin-bottom: 8px;
+    min-height: 38px; /* Ensure it looks like an input initially */
+}
+
+.edit-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.edit-controls button {
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.edit-cancel-btn {
+    background-color: var(--secondary-btn-bg-color);
+    color: var(--secondary-btn-text-color);
+    border: 1px solid var(--secondary-btn-border-color);
+}
+
+.edit-cancel-btn:hover {
+    background-color: var(--secondary-btn-hover-bg-color);
+}
+
+.edit-resubmit-btn {
+    background-color: var(--primary-btn-bg-color);
+    color: var(--primary-btn-text-color);
+    border: 1px solid var(--primary-btn-border-color);
+}
+
+.edit-resubmit-btn:hover {
+    background-color: var(--primary-btn-hover-bg-color);
+}
+
+
+/* --- Notes Panel --- */
+.notes-panel {
+
 }

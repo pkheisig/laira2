@@ -11,4 +11,8 @@ pypdf>=3.0.0 # Added for PDF document loading
 pdfplumber>=0.10.3  # For enhanced PDF text extraction
 Pillow>=10.0.0  # For image processing
 PyMuPDF>=1.25.0  # For better PDF image extraction
-Flask 
+Flask
+pydantic
+tokenizers
+fastapi
+uvicorn 

@@ -624,6 +624,8 @@ function setupProjectViewListeners(projectId) {
     const renameBtn = document.getElementById('rename-project-btn');
     const saveRenameBtn = document.getElementById('save-rename-project-btn');
     const cancelRenameBtn = document.getElementById('cancel-rename-project-btn');
+    const clearChatBtn = document.getElementById('clear-chat-btn'); // Get the Clear Chat button
+    const stopButton = document.getElementById('stop-button'); // Get the Stop button
     let originalTitle = '';
 
     // Notes Panel Elements
@@ -661,6 +663,7 @@ function setupProjectViewListeners(projectId) {
     console.log("Initialized notesData:", notesData, "Next ID:", nextNoteId);
     
     let currentlyViewingNoteId = null;
+    let isPinning = false; // Flag to prevent double pinning
 
     // --- Helper Function to Save Project --- 
     function saveCurrentProject() {
@@ -713,7 +716,8 @@ function setupProjectViewListeners(projectId) {
     if (chatArea) {
         chatArea.innerHTML = ''; // Clear default placeholder if history exists
         if (currentProject.chatHistory.length > 0) {
-             currentProject.chatHistory.forEach(msg => addMessageToChat(msg.text, msg.sender));
+             // Pass the existing msg.id when rendering history
+             currentProject.chatHistory.forEach(msg => addMessageToChat(msg.text, msg.sender, msg.id)); 
         } else {
              // If no history, ensure the placeholder is visible (handled by enable/disable chat) 
         }
@@ -922,133 +926,252 @@ function setupProjectViewListeners(projectId) {
          if (chatPlaceholder) chatPlaceholder.style.display = 'none';
     }
 
-    function addMessageToChat(text, sender) {
+    // --- Chat Message Handling --- 
+    let currentAbortController = null; // To handle stopping the fetch request
+
+    function addMessageToChat(text, sender, messageId = null, sources = null) {
         if (!chatArea) return;
 
         const placeholder = chatArea.querySelector('#chat-placeholder');
         if (placeholder) placeholder.remove();
 
         const messageElement = document.createElement('div');
+        // Use provided messageId or generate a unique one
+        const uniqueMsgId = messageId || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        messageElement.dataset.messageId = uniqueMsgId;
         messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
-        
-        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
-                                .replace(/\*(.*?)\*/g, '<em>$1</em>');       
-        messageElement.innerHTML = formattedText; 
 
-        // Add pin button to bot messages
-        if (sender === 'bot') {
-            const pinButton = document.createElement('button');
-            pinButton.className = 'pin-message-btn';
-            pinButton.title = 'Pin to Notes';
-            pinButton.innerHTML = '<i class="fas fa-thumbtack"></i>';
-            pinButton.dataset.messageText = text; // Store original raw text
-            messageElement.appendChild(pinButton); 
+        // --- Normal Message View ---
+        const messageDisplay = document.createElement('div');
+        messageDisplay.classList.add('message-display'); // Container for content + actions
+
+        const messageContent = document.createElement('div');
+        messageContent.classList.add('message-content');
+        // let formattedText = text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+        //                         .replace(/\\*(.*?)\\*/g, '<em>$1</em>');
+        // messageContent.innerHTML = formattedText; 
+        messageContent.innerHTML = processMessageText(text); // USE NEW FUNCTION
+        messageDisplay.appendChild(messageContent);
+
+        const messageActions = document.createElement('div');
+        messageActions.classList.add('message-actions');
+        
+        // Simplified: Add all potential buttons, control visibility later if needed
+        actionsHTML = `
+            <button class="action-btn edit-msg-btn" title="Edit Message"><i class="fas fa-pencil-alt"></i></button>
+            <button class="action-btn pin-message-btn" title="Pin to Notes" data-message-text="${encodeURIComponent(text)}"><i class="fas fa-thumbtack"></i></button>
+            <button class="action-btn delete-msg-btn" title="Delete Message"><i class="fas fa-trash-alt"></i></button>
+        `;
+
+        messageActions.innerHTML = actionsHTML;
+
+        // Hide edit/pin based on sender AFTER adding HTML
+        if (sender !== 'user') {
+            const editBtn = messageActions.querySelector('.edit-msg-btn');
+            if (editBtn) editBtn.style.display = 'none';
+        }
+        if (sender !== 'bot') {
+             const pinBtn = messageActions.querySelector('.pin-message-btn');
+             if (pinBtn) pinBtn.style.display = 'none';
+        }
+
+        messageDisplay.appendChild(messageActions); // Add actions to display container
+
+        // --- Edit View (Initially Hidden) ---
+        const editView = document.createElement('div');
+        editView.classList.add('message-edit-view');
+        editView.style.display = 'none'; // Hide initially
+        editView.innerHTML = `
+            <textarea class="edit-textarea" rows="1"></textarea>
+            <div class="edit-controls">
+                <button class="edit-cancel-btn">Cancel</button>
+                <button class="edit-resubmit-btn">Resubmit</button>
+            </div>
+        `;
+
+        // --- Append Views to Main Element ---
+        messageElement.appendChild(messageDisplay);
+        if (sender === 'user') { // Only add edit view structure for user messages
+             messageElement.appendChild(editView);
         }
 
         chatArea.appendChild(messageElement);
-        chatArea.scrollTop = chatArea.scrollHeight; 
-        return messageElement; 
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Add dynamic height adjustment to edit textarea
+        const editTextArea = editView.querySelector('.edit-textarea');
+        if (editTextArea) {
+            editTextArea.addEventListener('input', () => adjustTextareaHeight(editTextArea));
+        }
+
+        return messageElement; // Return the main message element
     }
 
-    function sendMessage() {
-        const userText = userInput.value.trim();
-        if (!userText || userInput.disabled) return; // Add check for disabled
+    // Modify adjustTextareaHeight to accept an element
+    function adjustTextareaHeight(element = null) {
+         const targetElement = element || userInput; // Default to main input if no element passed
+         if (!targetElement) return;
 
-        // Add user message to UI and history array
-        addMessageToChat(userText, 'user');
-        currentProject.chatHistory.push({ sender: 'user', text: userText }); 
-        // Don't save yet - wait for bot response
-
-        userInput.value = ''; // Clear input
-        adjustTextareaHeight(); // Reset height
-        disableChatInput(); // Disable while waiting for bot
-
-        // Add placeholder for bot thinking
-        const botThinkingMessage = addMessageToChat('Thinking...', 'bot'); 
-        if (botThinkingMessage) botThinkingMessage.classList.add('thinking');
-
-        // Simulate backend call and response
-        // TODO: Replace with actual fetch API call to /ask/<project_id>
-        console.log(`Simulating fetch to /ask/${projectId} with question:`, userText);
-        setTimeout(() => {
-            const botResponseText = `Laira's simulated answer to: \"${userText}\"`;
-            console.log("Simulated bot response received:", botResponseText);
-            
-            // Remove thinking message
-            if (botThinkingMessage) {
-                 console.log("Removing thinking message");
-                 botThinkingMessage.remove();
-            }
-
-            // Add bot response to UI and history array
-            addMessageToChat(botResponseText, 'bot'); 
-            currentProject.chatHistory.push({ sender: 'bot', text: botResponseText });
-            
-            // --- Save project data AFTER both messages are in history ---
-            saveCurrentProject(); 
-
-            enableChatInput(); // Re-enable input
-            userInput.focus(); // Focus back on input
-            chatArea.scrollTop = chatArea.scrollHeight; // Scroll to bottom
-        }, 1500); // Simulate 1.5 second delay
-    }
-
-    if (sendButton && userInput) {
-        sendButton.addEventListener('click', sendMessage);
-        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-        userInput.addEventListener('input', adjustTextareaHeight);
-    }
-
-    // Add Event listener for pinning messages
-    if (chatArea && notesList) { // Ensure necessary elements exist
-        chatArea.addEventListener('click', (e) => {
-            const pinButton = e.target.closest('.pin-message-btn');
-            if (pinButton) {
-                e.stopPropagation(); 
-                const messageText = pinButton.dataset.messageText;
-                if (!messageText) {
-                    console.error("Could not find message text on pin button.");
-                    return;
-                }
-
-                // Generate Title (First sentence or ~50 chars)
-                const sentences = messageText.split(/[.!?]/); 
-                let noteTitle = sentences[0]?.trim();
-                if (!noteTitle || noteTitle.length > 60) {
-                     noteTitle = messageText.substring(0, 50).trim() + (messageText.length > 50 ? '...' : '');
-                }
-                if (!noteTitle) noteTitle = "Pinned Note"; 
-
-                const noteBody = messageText; 
-                const noteId = `note-${nextNoteId++}`;
-                const newNoteData = { id: noteId, title: noteTitle, body: noteBody };
-
-                console.log("Pinning message as new note:", newNoteData);
-
-                 notesData[noteId] = newNoteData;
-                 currentProject.notes.push(newNoteData);
-                 saveCurrentProject(); 
-                 renderNoteListItem(newNoteData); 
-                 checkNotesList(); 
-                 showTemporaryStatus("Note created from pinned message.", false, 2500);
-            }
-        });
-    }
-
-    function adjustTextareaHeight() {
-        // ... Keep existing adjustTextareaHeight logic ...
-         if (!userInput) return;
-         userInput.style.height = 'auto'; // Reset height
-         let scrollHeight = userInput.scrollHeight;
-         const maxHeight = 150; // Example max height
+         targetElement.style.height = 'auto'; // Reset height
+         let scrollHeight = targetElement.scrollHeight;
+         const maxHeight = 150; // Example max height - make consistent?
          if (scrollHeight > maxHeight) {
-              userInput.style.height = `${maxHeight}px`;
-              userInput.style.overflowY = 'auto';
+              targetElement.style.height = `${maxHeight}px`;
+              targetElement.style.overflowY = 'auto';
          } else {
-              userInput.style.height = `${scrollHeight}px`;
-              userInput.style.overflowY = 'hidden';
+              targetElement.style.height = `${scrollHeight}px`;
+              targetElement.style.overflowY = 'hidden';
          }
     }
+
+    // NEW: Process message text for basic formatting
+    function processMessageText(text) {
+        if (typeof text !== 'string') return ''; // Handle non-string input
+        
+        // 1. Escape HTML to prevent injection
+        const div = document.createElement('div');
+        div.textContent = text; 
+        let processedText = div.innerHTML;
+
+        // 2. Convert newlines to <br> tags AFTER escaping
+        processedText = processedText.replace(/\n/g, '<br>');
+
+        // 3. Apply safe formatting replacements
+        processedText = processedText
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **bold**
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');     // *italic*
+            // Add more rules here (e.g., code blocks, links) later if needed
+
+        return processedText;
+    }
+
+    // Modified sendMessage to accept optional text (for resubmit)
+    function sendMessage(textToSend = null) {
+        // Use provided text or get from input
+        const rawText = textToSend !== null ? textToSend : userInput.value;
+        // Remove leading/trailing blank lines then trim surrounding whitespace
+        const question = rawText.replace(/^\s*\n+|\n+\s*$/g, '').trim(); 
+
+        if (!question) {
+            // If called from normal input (textToSend is null) and it's empty after cleaning, clear the visual input
+            if (textToSend === null && userInput) {
+                 userInput.value = ''; 
+                 adjustTextareaHeight(userInput);
+            }
+            return; // Don't send empty messages
+        }
+
+        // If called via normal input (not resubmit), clear the main input visually
+        if (textToSend === null && userInput) {
+             userInput.value = '';
+             adjustTextareaHeight(userInput); 
+        }
+
+        // *** Generate the unique ID for the user message HERE ***
+        const userMessageId = `msg-${Date.now()}-user-${Math.random().toString(36).substring(2, 9)}`; // Make it unique
+
+        // Add message to UI, passing the generated ID
+        const messageElement = addMessageToChat(question, 'user', userMessageId); 
+        console.log(`[sendMessage] Added user message to UI with ID: ${userMessageId}`);
+
+        // Add user message to history using the SAME ID
+        const userMessageData = { id: userMessageId, text: question, sender: 'user' }; 
+        currentProject.chatHistory.push(userMessageData);
+        console.log(`[sendMessage] Pushed user message to history with ID: ${userMessageId}`);
+        saveCurrentProject(); // Save after user message
+
+        // Add placeholder for bot response
+        const placeholderId = `msg-placeholder-${Date.now()}`;
+        // Add a specific class for the thinking state
+        const placeholderElement = addMessageToChat("Laira is thinking...", 'bot', placeholderId);
+        if (placeholderElement) placeholderElement.classList.add('message-thinking'); 
+
+        // Disable Clear Chat, Hide Send, Show Stop, Disable Input
+        if (clearChatBtn) clearChatBtn.disabled = true;
+        if (sendButton) sendButton.style.display = 'none';
+        if (stopButton) stopButton.style.display = 'inline-flex';
+        if (userInput) userInput.disabled = true; 
+
+        currentAbortController = new AbortController();
+        const signal = currentAbortController.signal;
+
+        // Simulate backend call (or actual fetch)
+        console.log(`Sending to backend (project ${projectId}): ${question}`);
+        setTimeout(() => {
+             if (signal.aborted) {
+                 console.log("Request aborted before response received.");
+                 return; 
+             }
+            const botResponseText = `Laira's simulated answer to: "${question}"`;
+            const finalPlaceholderElement = chatArea.querySelector(`[data-message-id="${placeholderId}"]`);
+            if (finalPlaceholderElement) {
+                const textSpan = finalPlaceholderElement.querySelector('.message-content'); 
+                const pinButton = finalPlaceholderElement.querySelector('.pin-message-btn'); // Find the pin button
+                if (textSpan) {
+                    textSpan.innerHTML = processMessageText(botResponseText);
+                }
+                // *** Update the pin button's data attribute ***
+                if (pinButton) {
+                    pinButton.dataset.messageText = encodeURIComponent(botResponseText);
+                    console.log(`[sendMessage] Updated pin button data for ${placeholderId}`);
+                }
+                 // Remove the thinking class to potentially show actions via CSS
+                 finalPlaceholderElement.classList.remove('message-thinking');
+            } else {
+                 // If placeholder somehow disappeared, add as a new message (actions will show by default)
+                 addMessageToChat(botResponseText, 'bot');
+            }
+            currentProject.chatHistory.push({ text: botResponseText, sender: 'bot' });
+            saveCurrentProject(); 
+
+            // Re-enable UI
+            if (clearChatBtn) clearChatBtn.disabled = false;
+            if (sendButton) sendButton.style.display = ''; 
+            if (stopButton) stopButton.style.display = 'none';
+            if (userInput) userInput.disabled = false; 
+            currentAbortController = null; 
+        }, 2500); 
+    }
+
+    // --- Event Listeners ---
+
+    // Stop Button Listener
+    if (stopButton) {
+        stopButton.addEventListener('click', () => {
+            if (currentAbortController) {
+                console.log("Stop button clicked, aborting request...");
+                currentAbortController.abort(); // Signal the abort
+                currentAbortController = null; // Reset immediately
+
+                // Manually clean up UI states as the fetch .finally() might not run reliably on abort
+                if (clearChatBtn) clearChatBtn.disabled = false;
+                if (sendButton) sendButton.style.display = '';
+                if (stopButton) stopButton.style.display = 'none';
+                if (userInput) userInput.disabled = false;
+
+                // Remove the "Laira is thinking..." placeholder
+                const placeholder = chatArea.querySelector('.message-thinking[data-message-id^="msg-placeholder-"]');
+                placeholder?.remove(); 
+            }
+        });
+    } else { console.warn("Stop button not found!"); }
+
+
+    // --- Send Message Listeners ---
+    // Ensure these call sendMessage() without arguments
+    if (sendButton && userInput) {
+        sendButton.addEventListener('click', () => { sendMessage(); }); // No args
+        userInput.addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                sendMessage(); // No args
+            } 
+        });
+        userInput.addEventListener('input', () => adjustTextareaHeight(userInput)); 
+    } else {
+        console.warn("Send button or user input element not found!");
+    }
+
 
     // --- Settings Modal Logic ---
      if (settingsForm) {
@@ -1461,6 +1584,258 @@ function setupProjectViewListeners(projectId) {
         });
     }
 
+    // NEW: Event delegation for chat message actions (edit, delete, pin)
+    if (chatArea) {
+        chatArea.addEventListener('click', (e) => {
+            const messageElement = e.target.closest('.message');
+            if (!messageElement) return;
+
+            const messageId = messageElement.dataset.messageId;
+
+            // Handle Delete Button
+            if (e.target.closest('.delete-msg-btn')) {
+                e.stopPropagation();
+                if (confirm('Are you sure you want to delete this message?')) {
+                     console.log(`Deleting message: ${messageId}`);
+                     // Find and remove from history
+                     const msgIndex = currentProject.chatHistory.findIndex(msg => msg.id === messageId);
+                     if (msgIndex !== -1) {
+                         currentProject.chatHistory.splice(msgIndex, 1);
+                         saveCurrentProject();
+                     } else {
+                         // If not found by ID, maybe it was the placeholder?
+                         // Or just log a warning if using unique IDs
+                         console.warn("Message not found in history for deletion:", messageId);
+                     }
+                     messageElement.remove();
+                     // Check if chat is now empty to show placeholder
+                     checkChatAreaPlaceholder(); 
+                }
+            }
+            // Handle Pin Button
+            else if (e.target.closest('.pin-message-btn')) {
+                e.stopPropagation();
+                if (isPinning) return; // Prevent double execution
+                isPinning = true; // Set flag
+
+                const pinButton = e.target.closest('.pin-message-btn');
+                const encodedText = pinButton.dataset.messageText;
+                if (!encodedText) {
+                    console.error("Could not find message text on pin button.");
+                    isPinning = false; // Reset flag on error
+                    return;
+                }
+                const messageText = decodeURIComponent(encodedText);
+
+                // Generate Title (First sentence or ~50 chars)
+                const sentences = messageText.split(/[.!?]/);
+                let noteTitle = sentences[0]?.trim();
+                if (!noteTitle || noteTitle.length > 60) {
+                     noteTitle = messageText.substring(0, 50).trim() + (messageText.length > 50 ? '...' : '');
+                }
+                if (!noteTitle) noteTitle = "Pinned Note";
+
+                const noteBody = messageText;
+                const noteId = `note-${nextNoteId++}`;
+                const newNoteData = { id: noteId, title: noteTitle, body: noteBody };
+
+                // --- DEBUG LOGGING --- 
+                console.log("Pinning Debug:", {
+                    encodedText: encodedText,
+                    decodedMessageText: messageText,
+                    generatedTitle: noteTitle,
+                    noteBody: noteBody,
+                    newNoteData: newNoteData
+                });
+                // --- END DEBUG LOGGING ---
+
+                console.log("Pinning message as new note:", newNoteData);
+
+                 notesData[noteId] = newNoteData;
+                 currentProject.notes.push(newNoteData);
+                 saveCurrentProject();
+                 renderNoteListItem(newNoteData);
+                 checkNotesList();
+                 showTemporaryStatus("Note created from pinned message.", false, 2500);
+                 
+                 // Reset flag after a short delay
+                 setTimeout(() => { isPinning = false; }, 300); 
+            }
+            // Handle Edit Button
+            else if (e.target.closest('.edit-msg-btn')) {
+                e.stopPropagation();
+                const messageDisplay = messageElement.querySelector('.message-display');
+                const editView = messageElement.querySelector('.message-edit-view');
+                const contentElement = messageDisplay.querySelector('.message-content');
+                const editTextArea = editView.querySelector('.edit-textarea');
+
+                if (messageDisplay && editView && contentElement && editTextArea) {
+                    // Get original text (might need to reverse formatting or get from history)
+                    // For now, let's get it from the current content, assuming simple text
+                    // A better way: find the message in currentProject.chatHistory by ID
+                    const originalMessage = currentProject.chatHistory.find(msg => msg.id === messageId);
+                    const originalText = originalMessage ? originalMessage.text : contentElement.textContent; // Fallback
+                    
+                    editTextArea.value = originalText;
+                    messageDisplay.style.display = 'none';
+                    editView.style.display = 'block';
+                    adjustTextareaHeight(editTextArea);
+                    editTextArea.focus();
+                }
+            }
+            // Handle Edit Cancel Button
+            else if (e.target.closest('.edit-cancel-btn')) {
+                e.stopPropagation();
+                const messageDisplay = messageElement.querySelector('.message-display');
+                const editView = messageElement.querySelector('.message-edit-view');
+                if (messageDisplay && editView) {
+                    editView.style.display = 'none';
+                    messageDisplay.style.display = ''; // Revert to default display
+                }
+            }
+            // Handle Edit Resubmit Button (Treat as New Message)
+            else if (e.target.closest('.edit-resubmit-btn')) {
+                e.stopPropagation();
+                const editTextArea = messageElement.querySelector('.edit-textarea');
+                const newText = editTextArea.value.trim();
+                
+                // Find elements needed to close the edit view
+                const messageDisplay = messageElement.querySelector('.message-display');
+                const editView = messageElement.querySelector('.message-edit-view');
+
+                if (newText && messageDisplay && editView) {
+                    console.log(`%c[Resubmit as New] Original ID: ${messageId}, New Text: "${newText}"`, 'color: #BA55D3; font-weight: bold;'); // Medium Orchid color
+                    
+                    // 1. Revert the original message's UI back to display view
+                    editView.style.display = 'none';
+                    messageDisplay.style.display = ''; 
+                    console.log('[Resubmit as New] Reverted original message UI for ID:', messageId);
+
+                    // --- No history or UI element removal --- 
+
+                    // 2. Call sendMessage with the new text
+                    // This will add the message as NEW to UI/history and trigger the backend call
+                    console.log('%c[Resubmit as New] Calling sendMessage with new text...%c', 'color: #BA55D3; font-weight: bold;', 'color: default;');
+                    sendMessage(newText);
+                         
+                } else {
+                     // Handle cases where elements might be missing or text is empty
+                     if (!newText) {
+                        console.error("[Resubmit as New Error] New text is empty.", { messageId });
+                     } else {
+                         console.error("[Resubmit as New Error] Could not find messageDisplay or editView for original message.", { messageId });
+                         // Attempt to revert UI anyway if possible
+                         if (editView) editView.style.display = 'none';
+                         if (messageDisplay) messageDisplay.style.display = '';
+                     }
+                }
+            }
+        });
+    }
+
+    // Placeholder for checking if chat area is empty and needs placeholder
+    function checkChatAreaPlaceholder() {
+        if (chatArea && chatPlaceholder) {
+            const hasMessages = chatArea.querySelector('.message') !== null;
+            chatPlaceholder.style.display = hasMessages ? 'none' : 'flex';
+            chatArea.style.justifyContent = hasMessages ? 'flex-start' : 'center';
+        }
+    }
+
+    // NEW Function to regenerate response based on edited history
+    function regenerateResponseFrom() { // REMOVED startIndex parameter
+        console.log(`%c[Regenerate Start]%c Regenerating response using current history.`, 'color: green; font-weight: bold;', 'color: default;');
+        
+        // Get the relevant history slice (the entire current history)
+        const historyForRequest = [...currentProject.chatHistory];
+        console.log('[Regenerate] Copied history for request:', JSON.parse(JSON.stringify(historyForRequest)));
+        
+        if (historyForRequest.length === 0) {
+            console.error("[Regenerate Error] Cannot regenerate response from empty history.");
+            return;
+        }
+
+        // Add placeholder for bot response
+        const placeholderId = `msg-placeholder-${Date.now()}`;
+        addMessageToChat("Laira is thinking...", 'bot', placeholderId);
+
+        // Disable Clear Chat, Hide Send, Show Stop, Disable Input
+        if (clearChatBtn) clearChatBtn.disabled = true;
+        if (sendButton) sendButton.style.display = 'none';
+        if (stopButton) stopButton.style.display = 'inline-flex';
+        if (userInput) userInput.disabled = true;
+
+        currentAbortController = new AbortController();
+        const signal = currentAbortController.signal;
+
+        // Simulate backend call with the history slice
+        console.log(`[Regenerate] Sending current history to backend. Last question: "${historyForRequest[historyForRequest.length - 1].text}"`); 
+        setTimeout(() => {
+            console.log('[Regenerate] Inside setTimeout callback.');
+            if (signal.aborted) {
+                 console.log("[Regenerate] Regeneration request aborted.");
+                 return; 
+             }
+
+            const botResponseText = `Laira's REGENERATED answer to: "${historyForRequest[historyForRequest.length - 1].text}"`;
+            console.log(`[Regenerate] Simulated response received: "${botResponseText}"`);
+            
+            // Update placeholder
+            const placeholderElement = chatArea.querySelector(`[data-message-id="${placeholderId}"]`);
+            if (placeholderElement) {
+                 const textSpan = placeholderElement.querySelector('.message-content') || placeholderElement; // Target content div
+                 const pinButton = placeholderElement.querySelector('.pin-message-btn'); // Find the pin button
+                 if (textSpan) {
+                     textSpan.innerHTML = processMessageText(botResponseText); // Use the function
+                 }
+                 // *** Update the pin button's data attribute ***
+                 if (pinButton) {
+                     pinButton.dataset.messageText = encodeURIComponent(botResponseText);
+                     console.log(`[regenerateResponseFrom] Updated pin button data for ${placeholderId}`);
+                 }
+            } else {
+                 addMessageToChat(botResponseText, 'bot');
+            }
+
+            // Add bot response to the main history
+            const botResponseData = { text: botResponseText, sender: 'bot' }; // No ID needed here?
+            currentProject.chatHistory.push(botResponseData);
+            console.log('[Regenerate] History AFTER adding bot response:', JSON.parse(JSON.stringify(currentProject.chatHistory)));
+
+            // Save the final history
+            console.log('[Regenerate] Saving project AFTER adding bot response...');
+            saveCurrentProject();
+
+            // Re-enable UI
+            console.log('[Regenerate] Re-enabling UI.');
+            if (clearChatBtn) clearChatBtn.disabled = false;
+            if (sendButton) sendButton.style.display = '';
+            if (stopButton) stopButton.style.display = 'none';
+            if (userInput) userInput.disabled = false;
+            currentAbortController = null;
+
+        }, 2000); // Simulate delay
+
+        // TODO: Replace setTimeout with actual fetch call using historyForRequest
+        /*
+        fetch(`/ask/${projectId}`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ question: editedQuestion, history: historyForRequest }), // Send history slice
+            signal: signal
+        })
+        .then(...) // Handle response, update placeholder
+        .catch(...) // Handle errors
+        .finally(() => { // Re-enable UI 
+            if (clearChatBtn) clearChatBtn.disabled = false;
+            if (sendButton) sendButton.style.display = '';
+            if (stopButton) stopButton.style.display = 'none';
+            if (userInput) userInput.disabled = false;
+            currentAbortController = null;
+        });
+        */
+    }
+
     // Initial check for notes placeholder
     checkNotesList();
     showNotesList(); // Ensure editor is hidden and list is shown initially
@@ -1468,6 +1843,41 @@ function setupProjectViewListeners(projectId) {
     // Initial check
     checkSourceList(); 
     adjustTextareaHeight();
+
+    // NEW: Clear Chat Button Listener
+    if (clearChatBtn) {
+        clearChatBtn.addEventListener('click', () => {
+            console.log("Clear Chat button clicked.");
+            if (confirm("Are you sure you want to clear the current chat? This action cannot be undone.")) {
+                // Clear the chat area visually
+                if (chatArea) {
+                    chatArea.innerHTML = ''; // Remove all messages
+                }
+                // Clear the chat history in the currentProject object
+                if (currentProject && currentProject.chatHistory) {
+                    currentProject.chatHistory = [];
+                    console.log("Cleared chat history in project data.");
+                    // Save the project state (important!)
+                    saveCurrentProject();
+                } else {
+                     console.warn("Could not find currentProject or chatHistory to clear.");
+                }
+                // Show the placeholder again
+                if (chatPlaceholder) {
+                     chatPlaceholder.style.display = 'flex';
+                     chatArea.style.justifyContent = 'center';
+                }
+                // Optionally clear the input textarea
+                if (userInput) {
+                    userInput.value = '';
+                    adjustTextareaHeight(); // Reset height if needed
+                }
+                console.log("Chat UI cleared.");
+                // Disable send button if input is empty (it should be now)
+                checkInputAndToggleButton(); // Update send button state
+            }
+        });
+    } else { console.warn("Clear Chat button not found!"); }
 
 }
 
