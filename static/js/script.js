@@ -692,10 +692,12 @@ function setupProjectViewListeners(projectId) {
 
     // Populate Notes List
     if (notesList) {
-        notesList.innerHTML = ''; // Clear any default/template items
+        // MODIFIED: Clear only actual note items, preserving the placeholder li
+        notesList.querySelectorAll('li:not(#notes-list-placeholder)').forEach(item => item.remove());
+        // notesList.innerHTML = ''; // Old way - cleared placeholder too
         Object.values(notesData).forEach(note => renderNoteListItem(note));
     }
-    checkNotesList(); // Update placeholder visibility
+    checkNotesList(); // Update placeholder visibility based on loaded notes
 
     // Populate Sources List
     if (sourceList) {
@@ -1212,8 +1214,21 @@ function setupProjectViewListeners(projectId) {
 
     // Creates the UI element from note data, DOES NOT save.
     function renderNoteListItem(noteData) {
-         if (!notesList || !noteData || !noteData.id) return;
-         if (notesList.querySelector(`li[data-note-id="${noteData.id}"]`)) return;
+         if (!notesList) {
+            console.error("[renderNoteListItem] Error: notesList element is null or undefined.");
+            return;
+         }
+         if (!noteData || !noteData.id) {
+            console.warn("[renderNoteListItem] Warning: Invalid noteData or missing note ID.", noteData);
+             return;
+         }
+         // Check if item already exists (optional, but good practice)
+         if (notesList.querySelector(`li[data-note-id="${noteData.id}"]`)) {
+             console.warn(`[renderNoteListItem] Note item ${noteData.id} already exists in the DOM.`);
+             return; 
+         }
+
+         console.log(`[renderNoteListItem] Creating list item for note ID: ${noteData.id}`); // DEBUG LOG
          const listItem = document.createElement('li');
          listItem.classList.add('note-list-item');
          listItem.dataset.noteId = noteData.id;
@@ -1227,7 +1242,10 @@ function setupProjectViewListeners(projectId) {
          `;
          const titleSpan = listItem.querySelector('.note-item-title');
          if (titleSpan) titleSpan.textContent = noteData.title || "Untitled Note";
+         
+         console.log("[renderNoteListItem] About to append item to notesList:", notesList); // DEBUG LOG
          notesList.appendChild(listItem);
+         console.log("[renderNoteListItem] Item appended. Current notesList children count:", notesList.children.length); // DEBUG LOG
     }
 
     // MODIFIED: deleteNoteFromList (from list item delete button)
@@ -1306,7 +1324,19 @@ function setupProjectViewListeners(projectId) {
          currentlyViewingNoteId = null;
     }
 
-    function checkNotesList() { const hasNotes = notesList && notesList.children.length > 0; if(notesListPlaceholder) notesListPlaceholder.style.display = hasNotes ? 'none' : 'block'; if (notesList) notesList.style.display = hasNotes ? 'block' : 'none';}
+    function checkNotesList() { 
+        const hasNotes = currentProject && currentProject.notes && currentProject.notes.length > 0;
+        const placeholderElement = document.getElementById('notes-list-placeholder'); // Get the placeholder li
+        
+        if (placeholderElement) {
+            placeholderElement.style.display = hasNotes ? 'none' : 'block'; // Show/hide the placeholder li
+        } else {
+            console.error("[checkNotesList] Placeholder element (#notes-list-placeholder) NOT FOUND");
+        }
+
+        // Ensure the main notesList UL is always visible (handled by default CSS or initial style)
+        // No need to manage notesList display here anymore
+    }
 
     // Event listener for the Add Note button (Changed)
     if (addNoteBtn) {

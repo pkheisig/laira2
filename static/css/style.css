@@ -994,6 +994,12 @@ body.dark-theme #notes-list .placeholder-box {
     border-color: var(--border-color-dark);
 }
 
+/* Override border for the specific notes placeholder */
+/* Use higher specificity to override #notes-list .placeholder-box */
+#notes-list #notes-list-placeholder {
+    border: none;
+}
+
 /* NEW: Styles for the Note Editor View */
 #note-editor-view {
     padding: 10px; /* Add some padding */

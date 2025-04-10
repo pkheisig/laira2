@@ -90,12 +90,12 @@
                     
                     <!-- Note List View (Initially Visible) -->
                     <div id="notes-list-view">
-                        <div id="notes-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center;">
-                             <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                            <p>Saved notes will appear here.</p>
-                        </div>
-                         <ul id="notes-list" style="display: none;">
-                            <!-- JS populates this -->
+                         <ul id="notes-list" style="display: block;"> 
+                            <li id="notes-list-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center; list-style: none;"> 
+                                <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Saved notes will appear here.</p>
+                            </li>
+                            <!-- JS populates other notes here -->
                         </ul>
                     </div>
 
