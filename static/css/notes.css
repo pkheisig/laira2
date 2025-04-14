@@ -1,0 +1,183 @@
+/* --- Notes Panel Specifics --- */
+.notes-panel .panel-content {
+    display: flex; /* Use flex for list/editor swap */
+    flex-direction: column;
+}
+
+/* Views Container */
+#notes-view-container {
+    flex-grow: 1;
+    display: flex; /* Allows switching between list/editor */
+    overflow: hidden;
+}
+
+/* Notes List View */
+#notes-list-view {
+    width: 100%; /* Takes full width of container */
+    display: flex;
+    flex-direction: column;
+}
+
+#notes-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1; /* Allow list to take remaining space */
+    overflow-y: auto; /* Scrollable list */
+}
+
+.note-list-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.note-list-item:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .note-list-item:hover {
+    background-color: var(--hover-bg-dark);
+}
+
+/* Note icon style */
+.note-icon {
+    /* Shared styles in components.css */
+    color: var(--accent-color-light);
+    z-index: 0;
+}
+body.dark-theme .note-icon {
+    color: var(--accent-color-dark);
+}
+
+/* Delete button style for notes */
+.note-delete-btn {
+    /* Shared styles in components.css */
+    background-color: #dc3545; /* Red background */
+    color: white;
+    opacity: 0;
+    visibility: hidden;
+    cursor: pointer;
+    z-index: 1;
+}
+.note-list-item:hover .note-delete-btn {
+    opacity: 1;
+    visibility: visible;
+}
+.note-list-item:hover .note-icon {
+     opacity: 0;
+     visibility: hidden;
+}
+
+.note-item-title {
+    flex-grow: 1;
+    font-size: 0.9em;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Note Editor View */
+#note-editor-view {
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    width: 100%;
+    height: 100%; /* Fill panel content */
+}
+
+.note-editor-header {
+    font-size: 1.1em;
+    font-weight: 500;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color-light);
+    flex-shrink: 0;
+}
+body.dark-theme .note-editor-header {
+    border-bottom-color: var(--border-color-dark);
+}
+
+#note-editor-title-input {
+    font-size: 1.1em;
+    font-weight: 500;
+    border: none;
+    outline: none;
+    background: none;
+    padding: 0 0 5px 0;
+    border-bottom: 1px solid var(--border-color-light);
+    margin-bottom: 10px;
+    width: 100%;
+    color: inherit; /* Inherit from body */
+}
+body.dark-theme #note-editor-title-input {
+    border-bottom-color: var(--border-color-dark);
+}
+#note-editor-title-input:focus {
+    border-bottom-color: var(--accent-color-light);
+}
+body.dark-theme #note-editor-title-input:focus {
+    border-bottom-color: var(--accent-color-dark);
+}
+
+#note-editor-body {
+    flex-grow: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 0.95em;
+    line-height: 1.6;
+    width: 100%;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    padding: 0;
+}
+
+.note-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color-light);
+    flex-shrink: 0;
+}
+body.dark-theme .note-editor-actions {
+    border-top-color: var(--border-color-dark);
+}
+
+/* Make editor buttons slightly smaller */
+.note-editor-actions button {
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+
+/* --- View Note Modal Specifics --- */
+#view-note-title {
+    font-size: 1.3em;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
+#view-note-body-textarea {
+    width: 100%;
+    min-height: 200px;
+    max-height: 50vh;
+    resize: vertical;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 1em;
+    line-height: 1.6;
+    font-family: inherit;
+    background-color: var(--panel-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme #view-note-body-textarea {
+    border-color: var(--border-color-dark);
+    background-color: var(--panel-bg-dark);
+    color: var(--text-color-dark);
+} 

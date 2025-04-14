@@ -130,6 +130,12 @@
                          <div class="upload-text">Drag & drop or <label for="modal-file-upload" class="file-label">choose file</label> to upload</div>
                          <div class="upload-hint">Supported file types: PDF, TXT</div>
                      </div>
+                     
+                     <!-- Add progress container for upload progress -->
+                     <div id="progress-container" style="display: none; margin-top: 15px;">
+                         <label for="upload-progress" style="display: block; margin-bottom: 5px;">Upload Progress:</label>
+                         <progress id="upload-progress" max="100" value="0" style="width: 100%;"></progress>
+                     </div>
                  </div>
                  <div class="modal-footer">
                     <span class="source-limit">Source limit: 0 / 50</span>
@@ -291,6 +297,6 @@
 
     <div id="status-message"></div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html> 

@@ -1,5 +1,7 @@
 python-dotenv
 google-cloud-aiplatform>=1.38.1  # Check for a recent version supporting Gemini and Gecko
+google-generativeai>=0.3.0  # For embedding generation and Gemini models
+protobuf>=3.20.0  # Required for Vertex AI and format conversion
 chromadb>=0.4.24 # Or a recent stable version
 customtkinter>=5.2.0 # For the GUI
 langchain>=0.1.0 # For potential use in document loading/chunking
@@ -9,10 +11,12 @@ langchain-google-vertexai>=0.1.0 # Specific Langchain integration
 # pypdf2
 pypdf>=3.0.0 # Added for PDF document loading
 pdfplumber>=0.10.3  # For enhanced PDF text extraction
+python-docx>=0.8.11  # For DOCX extraction
 Pillow>=10.0.0  # For image processing
 PyMuPDF>=1.25.0  # For better PDF image extraction
 Flask
 pydantic
 tokenizers
 fastapi
-uvicorn 
+uvicorn
+backoff>=2.2.1  # For retry logic with exponential backoff

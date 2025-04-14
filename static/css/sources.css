@@ -1,0 +1,155 @@
+/* --- Source Panel Specifics --- */
+.sources-panel .panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between buttons and list */
+}
+
+/* Container for the top buttons */
+.source-panel-buttons {
+    display: flex;
+    gap: 10px; /* Space between buttons */
+}
+
+.source-panel-buttons .action-button {
+    flex: 1; /* Make buttons share space equally */
+    justify-content: center; /* Center icon/text within button */
+}
+
+#source-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0 0;
+    flex-grow: 1; /* Allow list to take remaining space */
+    overflow-y: auto; /* Make list scrollable if needed */
+}
+#source-list li {
+    display: flex;
+    align-items: center;
+    padding: 8px 5px;
+    margin-bottom: 3px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+#source-list li:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme #source-list li:hover {
+    background-color: var(--hover-bg-dark);
+}
+
+/* Icon style for source items */
+.source-icon {
+    /* Shared styles in components.css */
+    color: var(--secondary-text-light);
+    z-index: 0; /* Below delete */
+}
+body.dark-theme .source-icon {
+    color: var(--secondary-text-dark);
+}
+
+/* Delete button style for source items */
+.source-delete-icon {
+    /* Shared styles in components.css */
+    background-color: #dc3545; /* Red background */
+    color: white;
+    opacity: 0;
+    visibility: hidden;
+    cursor: pointer;
+    z-index: 1; /* Above original icon */
+}
+
+/* Show delete icon on li:hover */
+#source-list li:hover .source-delete-icon {
+    opacity: 1;
+    visibility: visible;
+}
+/* Hide original icon on li:hover */
+#source-list li:hover .source-icon {
+     opacity: 0;
+     visibility: hidden;
+}
+
+.source-name {
+    flex-grow: 1;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 5px; 
+}
+
+.source-status {
+    font-size: 0.8em;
+    color: var(--secondary-text-light);
+    font-style: italic;
+    margin-left: auto; /* Push to the right */
+    padding-left: 10px;
+    white-space: nowrap;
+}
+body.dark-theme .source-status {
+    color: var(--secondary-text-dark);
+}
+
+/* --- Add Source Modal Specifics --- */
+.upload-area {
+    border: 2px dashed var(--border-color-light);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    background-color: var(--panel-bg-light);
+    margin-top: 20px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+body.dark-theme .upload-area {
+    border-color: var(--border-color-dark);
+    background-color: var(--panel-bg-dark);
+}
+.upload-area.dragover {
+    border-color: var(--accent-color-light);
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .upload-area.dragover {
+    border-color: var(--accent-color-dark);
+    background-color: var(--hover-bg-dark);
+}
+.upload-area i {
+    font-size: 2.5rem;
+    color: var(--accent-color-light);
+    margin-bottom: 15px;
+}
+body.dark-theme .upload-area i {
+    color: var(--accent-color-dark);
+}
+.upload-text {
+    color: var(--secondary-text-light);
+}
+body.dark-theme .upload-text {
+    color: var(--secondary-text-dark);
+}
+.file-label {
+    color: var(--accent-color-light);
+    text-decoration: underline;
+    cursor: pointer;
+}
+body.dark-theme .file-label {
+     color: var(--accent-color-dark);
+}
+.upload-hint {
+    font-size: 0.85em;
+    color: var(--secondary-text-light);
+    margin-top: 10px;
+}
+body.dark-theme .upload-hint {
+     color: var(--secondary-text-dark);
+}
+
+.source-limit {
+     font-size: 0.85em;
+     color: var(--secondary-text-light);
+     margin-right: auto; /* Push to the left in modal footer */
+}
+body.dark-theme .source-limit {
+     color: var(--secondary-text-dark);
+} 

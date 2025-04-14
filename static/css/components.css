@@ -1,0 +1,495 @@
+/* === Reusable Component Styles === */
+
+/* --- Header --- */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    height: 60px; /* Standard height */
+    border-bottom: 1px solid var(--border-color-light);
+    background-color: var(--panel-alt-bg-light);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+body.dark-theme .app-header {
+    border-bottom-color: var(--border-color-dark);
+    background-color: var(--panel-alt-bg-dark);
+}
+
+.logo {
+    display: flex; /* Align icon and text */
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    font-size: 1.5em;
+    color: var(--text-color-light);
+    text-decoration: none; /* Remove underline from link */
+}
+body.dark-theme .logo {
+     color: var(--text-color-dark);
+}
+.header-logo-icon {
+    font-size: 1.1em; /* Adjust icon size relative to text */
+    color: var(--accent-color-light); /* Use accent color */
+}
+body.dark-theme .header-logo-icon {
+    color: var(--accent-color-dark);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-button {
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    font-size: 1.25rem; /* Icon size */
+    padding: 8px;
+    cursor: pointer;
+    line-height: 1;
+    border-radius: 50%; /* Circular hover */
+    display: flex; /* Center icon */
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+body.dark-theme .header-button {
+    color: var(--secondary-text-dark);
+}
+.header-button:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--accent-color-light);
+}
+body.dark-theme .header-button:hover {
+    background-color: var(--hover-bg-dark);
+    color: var(--accent-color-dark);
+}
+
+.home-link i {
+    font-size: 1rem; /* Smaller icon for back arrow */
+}
+
+.user-profile-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--secondary-text-light);
+    color: var(--bg-color-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    font-size: 0.9em;
+    cursor: pointer; /* Placeholder */
+}
+body.dark-theme .user-profile-icon {
+    background-color: var(--secondary-text-dark);
+    color: var(--bg-color-dark);
+}
+
+/* --- Buttons --- */
+.action-button {
+    display: inline-flex; /* Align icon and text */
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 18px; /* Pill shape */
+    border: 1px solid var(--button-secondary-border-light);
+    background-color: var(--panel-alt-bg-light);
+    color: var(--button-secondary-text-light);
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+body.dark-theme .action-button {
+    border-color: var(--button-secondary-border-dark);
+    background-color: var(--panel-alt-bg-dark);
+    color: var(--button-secondary-text-dark);
+}
+.action-button:hover {
+    background-color: var(--hover-bg-light);
+    border-color: var(--accent-color-light);
+}
+body.dark-theme .action-button:hover {
+     background-color: var(--hover-bg-dark);
+     border-color: var(--accent-color-dark);
+}
+
+.action-button i {
+    font-size: 0.9em;
+}
+
+.primary-btn {
+    background-color: var(--button-primary-bg-light);
+    color: var(--button-primary-text-light);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+body.dark-theme .primary-btn {
+    background-color: var(--button-primary-bg-dark);
+    color: var(--button-primary-text-dark);
+}
+.primary-btn:hover { opacity: 0.9; }
+
+.secondary-btn {
+    background-color: transparent;
+    border: 1px solid var(--button-secondary-border-light);
+    color: var(--button-secondary-text-light);
+    padding: 10px 20px;
+     border-radius: 4px;
+    font-weight: 500;
+}
+body.dark-theme .secondary-btn {
+    border-color: var(--button-secondary-border-dark);
+    color: var(--button-secondary-text-dark);
+}
+.secondary-btn:hover {
+    background-color: var(--hover-bg-light);
+    border-color: var(--accent-color-light);
+}
+body.dark-theme .secondary-btn:hover {
+     background-color: var(--hover-bg-dark);
+     border-color: var(--accent-color-dark);
+}
+
+
+/* --- Modals --- */
+.modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-overlay.active {
+    display: flex; /* Show when active */
+}
+
+.modal-content {
+    background-color: var(--panel-alt-bg-light);
+    padding: 0; /* Remove padding, handled by sections */
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    max-width: 550px;
+    width: 90%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent content breaking border radius */
+}
+body.dark-theme .modal-content {
+    background-color: var(--panel-alt-bg-dark);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color-light);
+    flex-shrink: 0;
+}
+body.dark-theme .modal-header {
+    border-bottom-color: var(--border-color-dark);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25em;
+    font-weight: 500;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: var(--secondary-text-light);
+    padding: 0 5px;
+    line-height: 1;
+    cursor: pointer;
+}
+body.dark-theme .modal-close-btn {
+     color: var(--secondary-text-dark);
+}
+.modal-close-btn:hover {
+    color: var(--text-color-light);
+}
+body.dark-theme .modal-close-btn:hover {
+    color: var(--text-color-dark);
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto; /* Scrollable body */
+    flex-grow: 1;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--panel-bg-light); /* Slightly different bg */
+    flex-shrink: 0;
+    gap: 10px;
+}
+body.dark-theme .modal-footer {
+    border-top-color: var(--border-color-dark);
+    background-color: var(--panel-bg-dark);
+}
+
+/* --- Panels (General) --- */
+.panel {
+    background-color: var(--panel-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+body.dark-theme .panel {
+    background-color: var(--panel-bg-dark);
+    border-color: var(--border-color-dark);
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color-light);
+    flex-shrink: 0;
+}
+body.dark-theme .panel-header {
+    border-bottom-color: var(--border-color-dark);
+}
+.panel-header h2 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+.panel-header .panel-actions {
+    display: flex;
+    gap: 8px;
+}
+.panel-header .action-button {
+    padding: 4px 10px; /* Smaller header buttons */
+    font-size: 0.85em;
+}
+
+.panel-content {
+    padding: 16px;
+    flex-grow: 1;
+    overflow-y: auto; /* Scrollable content */
+}
+
+
+/* --- Placeholder Box --- */
+.placeholder-box {
+    padding: 20px;
+    text-align: center;
+    border: 1px dashed var(--border-color-light);
+    border-radius: 4px;
+    margin: 10px; /* Add margin */
+    color: var(--secondary-text-light);
+}
+body.dark-theme .placeholder-box {
+    border-color: var(--border-color-dark);
+    color: var(--secondary-text-dark);
+}
+.placeholder-box i {
+    font-size: 1.5em; /* Icon size */
+    margin-bottom: 10px;
+    display: block; /* Center icon */
+    color: var(--secondary-text-light);
+}
+body.dark-theme .placeholder-box i {
+    color: var(--secondary-text-dark);
+}
+.placeholder-box p {
+    font-size: 0.95em;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* --- Status Message --- */
+#status-message {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    color: white;
+    font-size: 0.9em;
+    text-align: center;
+    pointer-events: none; /* Allow clicking through */
+}
+#status-message.status-success {
+    background-color: #28a745; /* Green */
+}
+#status-message.status-error {
+    background-color: #dc3545; /* Red */
+}
+
+/* --- Sliders --- */
+input[type=range] {
+    -webkit-appearance: none; /* Override default look */
+    appearance: none;
+    width: 100%; /* Full-width */
+    height: 8px; /* Track height */
+    background: var(--input-bg-light); /* Track background */
+    border-radius: 5px;
+    outline: none; 
+    opacity: 0.7;
+    transition: opacity .2s;
+    cursor: pointer;
+}
+body.dark-theme input[type=range] {
+     background: var(--input-bg-dark);
+}
+input[type=range]:hover {
+    opacity: 1; /* Full opacity on hover */
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; /* Thumb width */
+  height: 18px; /* Thumb height */
+  background: var(--accent-color-light); 
+  border-radius: 50%;
+  cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--accent-color-light);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none; /* FF specific */
+}
+body.dark-theme input[type=range]::-webkit-slider-thumb {
+  background: var(--accent-color-dark);
+}
+body.dark-theme input[type=range]::-moz-range-thumb {
+   background: var(--accent-color-dark);
+}
+
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  cursor: pointer;
+  background: var(--input-bg-light);
+  border-radius: 5px;
+}
+body.dark-theme input[type=range]::-moz-range-track {
+   background: var(--input-bg-dark);
+}
+
+/* --- Shared List Item Icon Container (Used in Sources & Notes) --- */
+.item-icon-container {
+    position: relative; /* Position context for icons */
+    width: 24px; /* Fixed width based on note icon */
+    height: 24px; /* Fixed height */
+    margin-right: 10px; /* Space between icon area and text */
+    flex-shrink: 0;
+}
+
+.item-icon-container > span, 
+.item-icon-container > button {
+    position: absolute;
+    inset: 0; /* Make them fill the container */
+    display: flex; /* Use flex to center the <i> icon inside */
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    margin: 0; /* Reset margin */
+    padding: 0; /* Reset padding */
+    border: none; /* Ensure no border on button */
+    border-radius: 50%; /* Make background circular */
+    transition: opacity 0.2s ease, visibility 0.2s ease; /* Keep transitions */
+    box-sizing: border-box; /* Include padding/border in element's total width/height */
+}
+
+.item-icon-container > span i, 
+.item-icon-container > button i {
+    font-size: 0.9em; /* Consistent icon size */
+    line-height: 1; /* Ensure consistent line height */
+}
+
+/* --- Progress Bar --- */
+#progress-container {
+    display: none; /* Hidden initially */
+    width: 100%;
+    padding: 5px 16px; /* Match panel content padding */
+    flex-shrink: 0;
+}
+#upload-progress {
+    width: 100%;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    border-radius: 5px;
+    overflow: hidden; /* Ensure progress stays within bounds */
+}
+#upload-progress::-webkit-progress-bar {
+    background-color: var(--input-bg-light);
+    border-radius: 5px;
+}
+#upload-progress::-webkit-progress-value {
+    background-color: var(--accent-color-light);
+    border-radius: 5px;
+    transition: width 0.1s linear;
+}
+#upload-progress::-moz-progress-bar { /* Firefox */
+    background-color: var(--accent-color-light);
+    border-radius: 5px;
+    transition: width 0.1s linear;
+}
+body.dark-theme #upload-progress::-webkit-progress-bar {
+    background-color: var(--input-bg-dark);
+}
+body.dark-theme #upload-progress::-webkit-progress-value {
+    background-color: var(--accent-color-dark);
+}
+body.dark-theme #upload-progress::-moz-progress-bar {
+    background-color: var(--accent-color-dark);
+}
+
+/* --- Form Group (Used in Settings) --- */
+.form-group {
+    margin-bottom: 20px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 0.9em;
+}
+/* Input range handled above */
+.form-group select,
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    /* Inherits border, background, color from basic styles */
+} 

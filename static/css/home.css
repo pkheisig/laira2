@@ -1,0 +1,585 @@
+/* --- Home Page Specific Styles --- */
+.home-container {
+    max-width: 1100px; /* Wider container for home page */
+    width: 100%;
+    margin: 0 auto; /* Center */
+    padding: 40px 30px; /* Vertical/horizontal padding */
+    flex-grow: 1; 
+    text-align: center; /* Center-align content */
+}
+
+/* Main Title Styling on Home Page */
+.home-container h1 {
+    font-size: 4.4em; /* Restored original size */
+    font-weight: 500; /* Restored original weight */
+    text-align: center; /* Keep centered */
+    margin-bottom: 60px; /* Restored original margin */
+    line-height: 1.2; /* Restored original line height */
+    display: inline-block; /* Keep inline-block for gradient */
+    /* NEW: Red-to-orange gradient */
+    background: linear-gradient(to right, orangered, #FFA500); /* Redder start */
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    /* Fallback color */
+    color: orangered; 
+}
+
+.home-container .subtitle {
+    display: block; /* Ensure it stays on its own line */
+    font-size: 70%; /* Restored original relative size */
+    font-weight: 400; /* Restored original weight */
+     /* Apply the gradient explicitly for cross-browser safety */
+     background: linear-gradient(to right, orangered, #FFA500); /* Redder start */
+     -webkit-background-clip: text;
+     background-clip: text;
+     -webkit-text-fill-color: transparent;
+     /* Fallback color */
+     color: orangered;
+}
+
+.notebook-section {
+    margin-top: 30px; 
+    text-align: left; /* Align section content left */
+}
+
+.notebook-section h2 {
+    font-size: 1.2em;
+    font-weight: 500;
+    color: var(--text-color-light);
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color-light);
+}
+body.dark-theme .notebook-section h2 {
+    color: var(--text-color-dark);
+    border-bottom-color: var(--border-color-dark);
+}
+
+.view-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.view-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.view-btn {
+    background-color: var(--input-bg-light);
+    border: 1px solid var(--border-color-light);
+    color: var(--secondary-text-light);
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+}
+body.dark-theme .view-btn {
+    background-color: var(--input-bg-dark);
+    border-color: var(--border-color-dark);
+    color: var(--secondary-text-dark);
+}
+.view-btn.active {
+    background-color: var(--accent-color-light);
+    color: var(--button-primary-text-light);
+    border-color: var(--accent-color-light);
+}
+body.dark-theme .view-btn.active {
+    background-color: var(--accent-color-dark);
+    color: var(--button-primary-text-dark);
+    border-color: var(--accent-color-dark);
+}
+.view-btn:not(.active):hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .view-btn:not(.active):hover {
+    background-color: var(--hover-bg-dark);
+}
+
+#sort-dropdown {
+    padding: 6px 10px;
+    background-color: var(--input-bg-light);
+    border: 1px solid var(--border-color-light);
+    color: var(--text-color-light);
+    border-radius: 4px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%235f6368' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+    padding-right: 30px; 
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+body.dark-theme #sort-dropdown {
+     background-color: var(--input-bg-dark);
+     border-color: var(--border-color-dark);
+     color: var(--text-color-dark);
+     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239aa0a6' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+}
+
+/* Project List Area */
+#project-list-area {
+    /* Styles for grid/list view applied via JS */
+}
+
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); /* Slightly larger cards */
+    gap: 20px;
+}
+
+/* Placeholder styling within home container */
+.home-container .placeholder-box {
+     grid-column: 1 / -1; /* Span full width if grid is empty */
+     /* padding: 50px 20px; - Inherited */
+     /* border: 1px dashed var(--border-color-light); - Inherited */
+     /* border-radius: 8px; - Inherited */
+}
+/* body.dark-theme .home-container .placeholder-box { ... } - Inherited */
+
+
+/* --- Project Card Styles (Home Page) --- */
+.project-card {
+    background-color: var(--panel-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 12px; /* More rounded corners */
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 180px; /* Fixed height for cards */
+    cursor: pointer;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+    overflow: hidden; 
+    position: relative; /* Needed for absolute positioning of menu */
+}
+body.dark-theme .project-card {
+    background-color: var(--panel-bg-dark);
+    border-color: var(--border-color-dark);
+}
+
+.project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+body.dark-theme .project-card:hover {
+     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+.card-icon {
+    font-size: 1.3em;
+    color: var(--secondary-text-light);
+    background-color: var(--input-bg-light);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+body.dark-theme .card-icon {
+    color: var(--secondary-text-dark);
+    background-color: var(--input-bg-dark);
+}
+
+.card-options-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    font-size: 1rem;
+    padding: 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden; 
+    opacity: 0;
+    transition: background-color 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+body.dark-theme .card-options-btn {
+    color: var(--secondary-text-dark);
+}
+.project-card:hover .card-options-btn {
+     visibility: visible;
+     opacity: 1;
+}
+.card-options-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .card-options-btn:hover {
+     background-color: var(--hover-bg-dark);
+     color: var(--text-color-dark);
+}
+
+.card-body {
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+}
+
+.card-title {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: var(--text-color-light);
+    margin-bottom: 5px;
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+}
+body.dark-theme .card-title {
+     color: var(--text-color-dark);
+}
+
+.card-meta {
+    font-size: 0.8em;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .card-meta {
+     color: var(--secondary-text-dark);
+}
+
+.card-footer {
+     margin-top: auto; 
+     padding-top: 10px; 
+     flex-shrink: 0;
+     display: flex;
+     justify-content: flex-end; 
+}
+
+.card-shared-icon {
+     color: var(--secondary-text-light);
+     font-size: 0.9em;
+}
+body.dark-theme .card-shared-icon {
+      color: var(--secondary-text-dark);
+}
+
+/* Card Options Menu */
+.card-options-menu {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 40px; /* Position below the header */
+    right: 16px; /* Align with options button */
+    background-color: var(--panel-alt-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10;
+    padding: 5px 0;
+    min-width: 140px;
+}
+.card-options-menu.active {
+    display: block;
+}
+body.dark-theme .card-options-menu {
+    background-color: var(--panel-alt-bg-dark);
+    border-color: var(--border-color-dark);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.card-menu-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    color: var(--text-color-light);
+    padding: 8px 15px;
+    width: 100%;
+    text-align: left;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+body.dark-theme .card-menu-button {
+    color: var(--text-color-dark);
+}
+.card-menu-button:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .card-menu-button:hover {
+    background-color: var(--hover-bg-dark);
+}
+.card-menu-button i {
+    width: 16px; /* Align icons */
+    text-align: center;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .card-menu-button i {
+    color: var(--secondary-text-dark);
+}
+.card-menu-button.delete-card-btn {
+    color: #dc3545; /* Red color for delete */
+}
+body.dark-theme .card-menu-button.delete-card-btn {
+    color: #ff6b6b; /* Lighter red for dark theme */
+}
+.card-menu-button.delete-card-btn:hover {
+     background-color: rgba(220, 53, 69, 0.1);
+}
+body.dark-theme .card-menu-button.delete-card-btn:hover {
+     background-color: rgba(255, 107, 107, 0.15);
+}
+
+/* Inline buttons for card rename */
+.card-inline-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    margin-left: 5px; /* Space from title */
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex; /* Use inline-flex for alignment */
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle; /* Align with text */
+    width: 24px;
+    height: 24px;
+}
+.card-inline-btn i {
+     font-size: 0.85em;
+}
+.save-card-rename-btn {
+    color: #28a745; /* Green */
+}
+.save-card-rename-btn:hover {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+.cancel-card-rename-btn {
+    color: #dc3545; /* Red */
+}
+.cancel-card-rename-btn:hover {
+     background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Project List Styles (Home Page) */
+.project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0; /* Remove gap for list view */
+}
+
+.project-list-header {
+    display: flex;
+    padding: 10px 16px; /* Match item padding */
+    border-bottom: 1px solid var(--border-color-light);
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--secondary-text-light);
+    background-color: var(--panel-bg-light); /* Subtle background */
+}
+body.dark-theme .project-list-header {
+    border-bottom-color: var(--border-color-dark);
+    color: var(--secondary-text-dark);
+    background-color: var(--panel-bg-dark);
+}
+
+.header-col {
+    display: flex;
+    align-items: center;
+}
+
+/* Column Widths (Adjust as needed) */
+.header-col.title-col { flex: 3; min-width: 200px; }
+.header-col.sources-col { flex: 1; min-width: 100px; text-align: center; justify-content: center; }
+.header-col.modified-col { flex: 1; min-width: 120px; text-align: right; justify-content: flex-end; }
+.header-col.actions-col { flex: 0 0 60px; text-align: right; justify-content: flex-end; } /* Fixed width for actions */
+
+.project-list-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color-light);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative; /* For options menu positioning */
+}
+body.dark-theme .project-list-item {
+    border-bottom-color: var(--border-color-dark);
+}
+.project-list-item:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .project-list-item:hover {
+    background-color: var(--hover-bg-dark);
+}
+.project-list-item:last-child {
+    border-bottom: none;
+}
+
+.list-item-col {
+    display: flex;
+    align-items: center;
+    font-size: 0.95em;
+    /* Match column widths from header */
+}
+.list-item-col.title-col { flex: 3; min-width: 200px; }
+.list-item-col.sources-col { flex: 1; min-width: 100px; text-align: center; justify-content: center; }
+.list-item-col.modified-col { flex: 1; min-width: 120px; text-align: right; justify-content: flex-end; }
+.list-item-col.actions-col { flex: 0 0 60px; text-align: right; justify-content: flex-end; }
+
+
+.list-item-col.title-col .item-icon {
+    margin-right: 12px;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .list-item-col.title-col .item-icon {
+    color: var(--secondary-text-dark);
+}
+
+.list-item-col.title-col .item-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-item-col.sources-col .item-sources,
+.list-item-col.modified-col .item-mod-date {
+    font-size: 0.9em;
+    color: var(--secondary-text-light);
+}
+body.dark-theme .list-item-col.sources-col .item-sources,
+body.dark-theme .list-item-col.modified-col .item-mod-date {
+    color: var(--secondary-text-dark);
+}
+
+.list-options-btn {
+    background: none;
+    border: none;
+    color: var(--secondary-text-light);
+    font-size: 0.9rem;
+    padding: 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    visibility: hidden; /* Initially hidden */
+    opacity: 0;
+    transition: background-color 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+body.dark-theme .list-options-btn {
+    color: var(--secondary-text-dark);
+}
+.project-list-item:hover .list-options-btn {
+     visibility: visible;
+     opacity: 1;
+}
+.list-options-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .list-options-btn:hover {
+     background-color: var(--hover-bg-dark);
+     color: var(--text-color-dark);
+}
+
+/* List Options Menu */
+.list-options-menu {
+    position: absolute;
+    top: 35px; /* Position below the button */
+    right: 16px;
+    background-color: var(--panel-bg-light);
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    padding: 5px 0;
+    min-width: 140px;
+}
+body.dark-theme .list-options-menu {
+    background-color: var(--panel-bg-dark);
+    border-color: var(--border-color-dark);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.list-options-menu.active {
+    display: flex;
+}
+
+.list-menu-button {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    color: var(--text-color-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.list-menu-button:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .list-menu-button {
+    color: var(--text-color-dark);
+}
+body.dark-theme .list-menu-button:hover {
+    background-color: var(--hover-bg-dark);
+}
+
+/* List Item Inline Rename Styles */
+.project-list-item.editing .item-title {
+    /* Allow editing styles */
+     border: 1px solid var(--accent-color-light);
+     padding: 2px 4px;
+     margin: -3px -5px; /* Adjust for border/padding */
+     border-radius: 3px;
+     background-color: var(--input-bg-light);
+}
+body.dark-theme .project-list-item.editing .item-title {
+      border-color: var(--accent-color-dark);
+      background-color: var(--input-bg-dark);
+}
+
+/* Inline buttons for list view */
+.list-inline-btn {
+    background: none;
+    border: none;
+    font-size: 0.9em;
+    padding: 4px;
+    margin-left: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--secondary-text-light);
+    display: inline-flex; /* Use flex for alignment */
+    align-items: center;
+    justify-content: center;
+    width: 24px; /* Fixed size */
+    height: 24px;
+    transition: background-color 0.2s;
+}
+.list-inline-btn:hover {
+    background-color: var(--hover-bg-light);
+    color: var(--text-color-light);
+}
+body.dark-theme .list-inline-btn {
+    color: var(--secondary-text-dark);
+}
+body.dark-theme .list-inline-btn:hover {
+    background-color: var(--hover-bg-dark);
+    color: var(--text-color-dark);
+} 

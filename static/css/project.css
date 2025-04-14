@@ -1,0 +1,93 @@
+/* --- Project Page Specific Styles --- */
+.project-container {
+    display: flex;
+    flex: 1; /* Fill remaining vertical space */
+    padding: 15px;
+    gap: 15px;
+    overflow: hidden; /* Prevent layout issues */
+}
+
+/* Panel Sizing */
+.sources-panel {
+    flex: 0 0 260px; /* Slightly wider */
+}
+.chat-panel {
+    flex: 1 1 auto; /* Takes up remaining space */
+    min-width: 400px; /* Keep a reasonable minimum for the chat */
+}
+.notes-panel {
+    flex: 0 0 260px;
+}
+
+/* Project Title Editing */
+.project-title-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-grow: 1; /* Allow it to take space */
+    margin: 0 20px; /* Spacing */
+    overflow: hidden; /* Prevent title overflow */
+}
+
+#project-title-display {
+    font-size: 1.2em;
+    font-weight: 500;
+    padding: 5px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent; /* Placeholder for focus */
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+#project-title-display[contenteditable="true"] {
+    cursor: text;
+    border-color: var(--accent-color-light);
+    background-color: var(--input-bg-light);
+    white-space: normal; /* Allow wrapping while editing */
+}
+body.dark-theme #project-title-display[contenteditable="true"] {
+    border-color: var(--accent-color-dark);
+    background-color: var(--input-bg-dark);
+}
+
+/* Smaller icons for rename controls */
+.rename-button i,
+.save-rename-button i,
+.cancel-rename-button i {
+    font-size: 0.9rem;
+}
+
+/* Hide rename button when editing */
+.project-title-container.editing .rename-button {
+    display: none;
+}
+/* Show save/cancel buttons when editing */
+.project-title-container.editing .save-rename-button,
+.project-title-container.editing .cancel-rename-button {
+    display: flex; 
+}
+
+/* Resizer Element */
+.resizer {
+    flex: 0 0 5px; /* Width of the resizer */
+    cursor: col-resize; /* Indicate horizontal resizing */
+    background-color: var(--border-color-light); /* Subtle color */
+    border-left: 1px solid var(--border-color-light);
+    border-right: 1px solid var(--border-color-light);
+    transition: background-color 0.2s ease;
+}
+body.dark-theme .resizer {
+    background-color: var(--border-color-dark);
+    border-left-color: var(--border-color-dark);
+    border-right-color: var(--border-color-dark);
+}
+.resizer:hover,
+.resizer.resizing {
+    background-color: var(--accent-color-light);
+}
+body.dark-theme .resizer:hover,
+body.dark-theme .resizer.resizing {
+    background-color: var(--accent-color-dark);
+} 

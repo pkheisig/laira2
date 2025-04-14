@@ -1,0 +1,344 @@
+/* --- Chat Panel Specifics --- */
+.chat-panel .panel-content { 
+    /* Inherits padding from .panel-content */
+    /* Keep flex direction for chat content */
+    display: flex; 
+    flex-direction: column; 
+}
+
+.chat-content { /* Renamed from #chat-area for clarity */
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column; /* Stack messages */
+    gap: 10px;
+    overflow-y: auto; /* Make messages scrollable */
+    padding: 10px; /* Padding inside the scroll area */
+}
+
+.message {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 18px;
+    max-width: 85%; /* Slightly wider max width */
+    position: relative;
+    display: flex; /* Use flex for icon alignment */
+    align-items: flex-start; /* Align items to the top */
+    word-wrap: break-word;
+}
+
+.user-message {
+    background-color: var(--accent-color-light);
+    color: var(--button-primary-text-light);
+    align-self: flex-end;
+    margin-left: auto;
+    border-bottom-right-radius: 5px;
+}
+body.dark-theme .user-message {
+     background-color: var(--accent-color-dark);
+     color: var(--button-primary-text-dark);
+}
+
+.bot-message {
+    background-color: var(--input-bg-light);
+    color: var(--text-color-light);
+    align-self: flex-start;
+    border-bottom-left-radius: 5px;
+}
+body.dark-theme .bot-message {
+    background-color: var(--panel-bg-dark); /* Use panel bg for bot */
+    color: var(--text-color-dark);
+}
+
+/* Styles for bot message while thinking */
+.bot-message.thinking,
+.typing-indicator {
+    font-style: italic;
+    color: var(--secondary-text-light);
+    background-color: var(--input-bg-light);
+}
+body.dark-theme .bot-message.thinking,
+body.dark-theme .typing-indicator {
+     color: var(--secondary-text-dark);
+     background-color: var(--panel-bg-dark);
+}
+
+/* General message content formatting */
+.message strong { font-weight: 600; }
+.message em { font-style: italic; }
+.message code {
+    font-family: monospace;
+    background-color: rgba(0,0,0,0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+body.dark-theme .message code {
+    background-color: rgba(255,255,255,0.1);
+}
+.message a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+
+/* Message Actions (Edit, Pin, Delete) */
+.message-display {
+    display: flex;
+    flex-direction: column; /* Content above actions */
+    width: 100%; /* Take full width within the message bubble */
+}
+
+.message-content {
+    padding-bottom: 5px; /* Space between text and potential actions */
+}
+
+.message-actions {
+    display: flex; 
+    flex-direction: row; /* Explicitly row */
+    align-items: center; 
+    justify-content: flex-end; 
+    gap: 5px; 
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    margin-left: auto; 
+    margin-top: 4px; 
+    padding: 0;
+    border: none; 
+    width: auto; /* Allow container to size based on content */
+    height: auto;
+}
+
+/* Hide actions while message is in 'thinking' state */
+.bot-message.thinking .message-actions {
+    display: none; 
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.message-actions .action-btn { /* Specific action buttons within messages */
+    display: inline-flex; 
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; 
+    flex-grow: 0; 
+    background: none;
+    border: none;
+    padding: 2px;
+    margin: 0;
+    line-height: 1; 
+    cursor: pointer;
+    font-size: 0.9em; 
+    border-radius: 3px;
+    width: 20px; /* Smaller buttons */
+    height: 20px;
+}
+
+.user-message .message-actions .action-btn {
+    color: var(--button-primary-text-light); /* Match user message text */
+}
+body.dark-theme .user-message .message-actions .action-btn {
+    color: var(--button-primary-text-dark);
+}
+
+.bot-message .message-actions .action-btn {
+     color: var(--secondary-text-light); 
+}
+body.dark-theme .bot-message .message-actions .action-btn {
+     color: var(--secondary-text-dark); 
+}
+
+.message-actions .action-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1); /* Subtle hover */
+}
+body.dark-theme .message-actions .action-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+/* Edit View Styling */
+.message-edit-view {
+    width: 100%;
+    padding: 5px 0; /* Padding around the edit area */
+    display: none; /* Hidden by default */
+}
+
+.edit-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 6px;
+    background-color: var(--input-bg-light);
+    color: var(--text-color-light);
+    font-family: inherit;
+    font-size: 0.95em;
+    resize: none; /* Disable manual resize */
+    box-sizing: border-box; /* Include padding and border in width */
+    margin-bottom: 8px;
+    min-height: 38px; /* Ensure it looks like an input initially */
+}
+body.dark-theme .edit-textarea {
+     border-color: var(--border-color-dark);
+     background-color: var(--input-bg-dark);
+     color: var(--text-color-dark);
+}
+
+.edit-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.edit-controls button { /* Base style for edit buttons */
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.edit-cancel-btn {
+    background-color: transparent; /* Use secondary style */
+    color: var(--button-secondary-text-light);
+    border: 1px solid var(--button-secondary-border-light);
+}
+body.dark-theme .edit-cancel-btn {
+     color: var(--button-secondary-text-dark);
+     border-color: var(--button-secondary-border-dark);
+}
+.edit-cancel-btn:hover {
+    background-color: var(--hover-bg-light);
+}
+body.dark-theme .edit-cancel-btn:hover {
+     background-color: var(--hover-bg-dark);
+}
+
+.edit-resubmit-btn {
+    background-color: var(--button-primary-bg-light); /* Use primary style */
+    color: var(--button-primary-text-light);
+    border: none;
+}
+body.dark-theme .edit-resubmit-btn {
+    background-color: var(--button-primary-bg-dark);
+    color: var(--button-primary-text-dark);
+}
+.edit-resubmit-btn:hover {
+    opacity: 0.9;
+}
+
+
+/* Input Area */
+.input-area {
+    display: flex;
+    align-items: flex-end; /* Align items to bottom for multi-line text */
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-color-light);
+    background-color: var(--panel-alt-bg-light);
+    flex-shrink: 0;
+}
+body.dark-theme .input-area {
+     border-top-color: var(--border-color-dark);
+     background-color: var(--panel-alt-bg-dark);
+}
+
+#user-input {
+    flex-grow: 1;
+    border: 1px solid var(--border-color-light);
+    background-color: var(--input-bg-light);
+    color: var(--text-color-light);
+    border-radius: 18px;
+    padding: 10px 15px;
+    margin-right: 10px;
+    resize: none;
+    line-height: 1.4;
+    max-height: 150px;
+    min-height: 40px; /* Match button approx */
+    overflow-y: auto;
+    font-size: 1em;
+}
+body.dark-theme #user-input {
+    border-color: var(--border-color-dark);
+    background-color: var(--input-bg-dark);
+    color: var(--text-color-dark);
+}
+#user-input::placeholder {
+    color: var(--secondary-text-light);
+}
+body.dark-theme #user-input::placeholder {
+    color: var(--secondary-text-dark);
+}
+#user-input:disabled {
+    background-color: var(--panel-bg-light);
+    cursor: not-allowed;
+}
+body.dark-theme #user-input:disabled {
+    background-color: var(--panel-bg-dark);
+}
+
+#send-button, #stop-button {
+    flex-shrink: 0;
+    background-color: var(--accent-color-light);
+    color: var(--button-primary-text-light);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: inline-flex; /* Changed from flex */
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1em;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+body.dark-theme #send-button, 
+body.dark-theme #stop-button {
+    background-color: var(--accent-color-dark);
+    color: var(--button-primary-text-dark);
+}
+#send-button:hover, #stop-button:hover {
+    opacity: 0.9;
+}
+#send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--secondary-text-light);
+}
+body.dark-theme #send-button:disabled {
+     background-color: var(--secondary-text-dark);
+}
+
+#stop-button {
+    background-color: #dc3545; /* Red for stop */
+    display: none; /* Hidden by default */
+}
+body.dark-theme #stop-button {
+    background-color: #ff6b6b; /* Lighter red */
+}
+
+
+/* Typing Indicator */
+.typing-indicator {
+    display: inline-block; /* Align with text flow */
+    padding: 10px 15px;
+    border-radius: 18px; 
+    border-bottom-left-radius: 5px; /* Match bot message */
+    align-self: flex-start; /* Match bot message */
+    margin-bottom: 10px; /* Match message margin */
+}
+
+.typing-indicator .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: currentColor; /* Inherit color */
+    border-radius: 50%;
+    animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+.typing-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing-bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1.0); }
+} 

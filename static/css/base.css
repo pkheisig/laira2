@@ -1,0 +1,105 @@
+/* CSS Reset / Basic Styles */
+:root {
+    /* Define Light Theme Colors */
+    --bg-color-light: #ffffff;
+    --text-color-light: #202124;
+    --secondary-text-light: #5f6368;
+    --panel-bg-light: #f8f9fa;
+    --panel-alt-bg-light: #ffffff;
+    --border-color-light: #dadce0;
+    --input-bg-light: #f1f3f4;
+    --button-primary-bg-light: #cc6600; /* Dark Orange */
+    --button-primary-text-light: #ffffff;
+    --button-secondary-border-light: #dadce0;
+    --button-secondary-text-light: #cc6600; /* Dark Orange */
+    --hover-bg-light: #fff0e0; /* Lighter orange hover */
+    --accent-color-light: #cc6600; /* Dark Orange */
+
+    /* Define Dark Theme Colors */
+    --bg-color-dark: #202124; /* Darker BG like screenshot */
+    --text-color-dark: #e8eaed;
+    --secondary-text-dark: #9aa0a6;
+    --panel-bg-dark: #292a2d;
+    --panel-alt-bg-dark: #202124; /* Match body */
+    --border-color-dark: #3c4043;
+    --input-bg-dark: #292a2d;
+    --button-primary-bg-dark: #ff8c00; /* Orange/Yellowish */
+    --button-primary-text-dark: #ffffff;
+    --button-secondary-border-dark: #5f6368;
+    --button-secondary-text-dark: #ff8c00; /* Orange/Yellowish */
+    --hover-bg-dark: #4d2d0c; /* Dark orange hover */
+    --accent-color-dark: #ff8c00; /* Orange/Yellowish */
+}
+
+html {
+    height: 100%;
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+body {
+    background-color: var(--bg-color-light);
+    color: var(--text-color-light);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body.dark-theme {
+    background-color: var(--bg-color-dark);
+    color: var(--text-color-dark);
+}
+
+button {
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* General styles for form elements */
+button, input, select, textarea {
+    font-family: inherit;
+    background-color: transparent; /* Default transparent bg */
+    border: 1px solid var(--border-color-light); /* Default border */
+    color: var(--text-color-light); /* Default text color */
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+body.dark-theme button, 
+body.dark-theme input, 
+body.dark-theme select, 
+body.dark-theme textarea {
+    border-color: var(--border-color-dark);
+    color: var(--text-color-dark);
+}
+
+/* Prevent text selection during resize - Keep this global */
+body.resizing {
+    user-select: none;
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+ */
+    cursor: col-resize !important; /* Force cursor globally */
+}
+
+/* Basic Link Styling */
+a {
+    color: var(--accent-color-light);
+    text-decoration: none;
+}
+body.dark-theme a {
+    color: var(--accent-color-dark);
+}
+a:hover {
+    text-decoration: underline;
+} 
