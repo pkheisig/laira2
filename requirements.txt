@@ -15,6 +15,7 @@ python-docx>=0.8.11  # For DOCX extraction
 Pillow>=10.0.0  # For image processing
 PyMuPDF>=1.25.0  # For better PDF image extraction
 Flask
+Flask-Limiter
 pydantic
 tokenizers
 fastapi

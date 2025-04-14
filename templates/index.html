@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laira {% if project_id %}- {{ project_id }}{% endif %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     {% block content %}
     {% if project_id %}
         <header class="app-header project-header">
-            <a href="{{ url_for('home') }}" class="header-button home-link" title="Back to Home">
+            <a href="{{ url_for('project_bp.home') }}" class="header-button home-link" title="Back to Home">
                 <i class="fas fa-chevron-left"></i>
             </a>
             <div class="project-title-container">
@@ -105,6 +106,7 @@
 
                     <!-- Note Editor View (Initially Hidden) -->
                     <div id="note-editor-view" style="display: none; height: 100%; display: flex; flex-direction: column;">
+                        <input type="hidden" id="note-id-input">
                         <h3 id="note-editor-title" contenteditable="true" class="note-title-editable">New Note</h3>
                         <textarea id="note-editor-body" placeholder="Start writing your note..." class="note-body-textarea"></textarea>
                         <div class="note-editor-footer">
@@ -298,5 +300,7 @@
     <div id="status-message"></div>
 
     <script type="module" src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html> 

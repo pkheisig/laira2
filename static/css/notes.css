@@ -71,13 +71,16 @@ body.dark-theme .note-icon {
      visibility: hidden;
 }
 
-.note-item-title {
+.note-list-item .note-item-title {
     flex-grow: 1;
-    font-size: 0.9em;
-    font-weight: 500;
+    margin-left: 10px;
+    margin-right: 10px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: inline-block; /* Or block, depending on layout */
+    max-width: calc(100% - 70px); /* Adjust based on icon/button size + padding */
+    vertical-align: middle;
 }
 
 /* Note Editor View */
@@ -156,28 +159,88 @@ body.dark-theme .note-editor-actions {
 }
 
 /* --- View Note Modal Specifics --- */
-#view-note-title {
-    font-size: 1.3em;
-    font-weight: 500;
-    margin-bottom: 10px;
+.modal-overlay.note-view-modal {
+    /* Keep flex for centering */
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+
+    /* Control visibility with opacity and visibility */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 1050; 
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s; /* Transition opacity, hide visibility after transition */
 }
 
-#view-note-body-textarea {
-    width: 100%;
-    min-height: 200px;
-    max-height: 50vh;
-    resize: vertical;
-    border: 1px solid var(--border-color-light);
-    border-radius: 4px;
-    padding: 10px;
-    font-size: 1em;
-    line-height: 1.6;
-    font-family: inherit;
-    background-color: var(--panel-bg-light);
-    color: var(--text-color-light);
+/* Show when active */
+.modal-overlay.note-view-modal.active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0s linear 0s; /* Show visibility immediately */
 }
-body.dark-theme #view-note-body-textarea {
-    border-color: var(--border-color-dark);
-    background-color: var(--panel-bg-dark);
-    color: var(--text-color-dark);
-} 
+
+.modal-content.note-view-content {
+    /* Styles for the content box itself */
+    background-color: var(--background-color);
+    padding: 20px;
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    width: 90%; 
+    max-width: 600px; 
+    min-height: 300px; 
+    max-height: 80vh; /* Prevent modal from being too tall */
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    overflow: hidden; /* Prevent content spill */
+    /* Add a subtle scale transition */
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.note-view-modal.active .modal-content.note-view-content {
+    transform: scale(1); /* Scale to normal size when active */
+}
+
+/* Ensure header/footer don't shrink */
+.note-view-content .modal-header,
+.note-view-content .modal-footer {
+    flex-shrink: 0;
+}
+
+/* Make body take remaining space */
+.note-view-content .modal-body {
+    flex-grow: 1;
+    display: flex; /* Allow textarea to grow */
+    flex-direction: column;
+    overflow-y: auto; /* Add scroll if content exceeds height */
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+#view-note-body-textarea.note-body-textarea.view-mode {
+    flex-grow: 1; /* Allow textarea to fill vertical space */
+    min-height: 200px; /* Ensure decent minimum height */
+    resize: none; /* Prevent manual resizing */
+    border: 1px solid var(--border-color); /* Match editor style */
+    background-color: var(--input-background-color);
+    color: var(--text-color);
+    font-family: inherit;
+    padding: 10px;
+    border-radius: var(--border-radius);
+}
+
+
+#view-note-title {
+    flex-grow: 1; /* Allow title to take space */
+    margin-right: 10px; /* Space before close button */
+    /* Keep contenteditable styling if needed */
+}
+
+/* ... rest of modal styles ... */ 

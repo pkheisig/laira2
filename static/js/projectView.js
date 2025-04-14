@@ -5,11 +5,8 @@ import { showTemporaryStatus, adjustTextareaHeight } from './utils.js';
 const storageKey = 'lairaProjects'; // Key for localStorage
 let currentProject = null; // Store current project data globally within this module
 let allProjects = []; // Store all projects globally
-let notesData = {}; // Cache for notes lookup
-let nextNoteId = 1; // For generating local note IDs
 let currentAbortController = null; // For stopping fetch requests
 let isPinning = false; // Flag for pinning messages
-let currentlyViewingNoteId = null; // Track viewed note ID
 
 // --- Modal Visibility Functions ---
 function showModal(modalElement) {
@@ -481,242 +478,6 @@ function resetChat() {
     adjustTextareaHeight(userInput);
 }
 
-// --- Notes Panel Logic ---
-function renderNotesList() {
-    const notesList = document.getElementById('notes-list');
-    if (!notesList) return;
-    notesList.querySelectorAll('li:not(#notes-list-placeholder)').forEach(item => item.remove());
-    notesData = {}; // Reset local cache before repopulating
-    nextNoteId = 1; // Reset next ID
-    currentProject.notes?.forEach(note => {
-        notesData[note.id] = note;
-        renderNoteListItem(note);
-        const idNum = parseInt(note.id.split('-')[1]);
-        if (!isNaN(idNum) && idNum >= nextNoteId) nextNoteId = idNum + 1;
-    });
-    checkNotesList();
-}
-
-function renderNoteListItem(noteData) {
-    const notesList = document.getElementById('notes-list');
-    if (!notesList || !noteData || !noteData.id) return;
-    if (notesList.querySelector(`li[data-note-id="${noteData.id}"]`)) return;
-    const listItem = document.createElement('li');
-    listItem.classList.add('note-list-item');
-    listItem.dataset.noteId = noteData.id;
-    listItem.innerHTML = `
-       <div class="item-icon-container">
-            <span class="note-icon"><i class="fas fa-sticky-note"></i></span>
-            <button class="note-delete-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
-       </div>
-       <span class="note-item-title"></span>
-    `;
-    const titleSpan = listItem.querySelector('.note-item-title');
-    if (titleSpan) titleSpan.textContent = noteData.title || "Untitled Note";
-    notesList.appendChild(listItem);
-}
-
-function deleteNoteFromList(noteId) {
-    const notesList = document.getElementById('notes-list');
-    const listItem = notesList?.querySelector(`li[data-note-id="${noteId}"]`);
-    if (!listItem) return;
-    listItem.remove();
-    delete notesData[noteId];
-    const noteIndex = currentProject.notes.findIndex(n => n.id === noteId);
-    if (noteIndex !== -1) {
-        currentProject.notes.splice(noteIndex, 1);
-        saveCurrentProject();
-    }
-    checkNotesList();
-}
-
-function showNoteViewModal(noteId) {
-    const note = notesData[noteId];
-    const viewNoteModal = document.getElementById('view-note-modal');
-    const viewNoteTitle = document.getElementById('view-note-title');
-    const viewNoteBodyTextarea = document.getElementById('view-note-body-textarea');
-    if (!note || !viewNoteModal || !viewNoteTitle || !viewNoteBodyTextarea) return;
-    currentlyViewingNoteId = noteId;
-    viewNoteTitle.textContent = note.title;
-    // Safely access note body/content - use body if exists, fallback to content
-    viewNoteBodyTextarea.value = note.body || note.content || ''; 
-    showModal(viewNoteModal);
-}
-
-function saveNoteChanges() {
-    const viewNoteModal = document.getElementById('view-note-modal');
-    const viewNoteTitle = document.getElementById('view-note-title');
-    const viewNoteBodyTextarea = document.getElementById('view-note-body-textarea');
-    if (!currentlyViewingNoteId || !viewNoteTitle || !viewNoteBodyTextarea) return;
-    const noteId = currentlyViewingNoteId;
-    const newTitle = viewNoteTitle.textContent.trim() || "Untitled Note";
-    const newBody = viewNoteBodyTextarea.value.trim();
-    
-    const noteDataToSave = {
-        id: noteId,
-        title: newTitle,
-        content: newBody // Send `content` to backend
-    };
-
-    api.saveNote(currentProject.id, noteDataToSave)
-        .then(result => {
-            if (result.success) {
-                // Update local data (cache and project array)
-                if (notesData[noteId]) {
-                    notesData[noteId].title = newTitle;
-                    notesData[noteId].body = newBody; // Update local cache with 'body'
-                    notesData[noteId].content = newBody; // Keep 'content' consistent if used elsewhere
-                }
-                const noteInProject = currentProject.notes.find(n => n.id === noteId);
-                if (noteInProject) {
-                    noteInProject.title = newTitle;
-                    noteInProject.body = newBody; // Use 'body' in project data too
-                    noteInProject.content = newBody;
-                    noteInProject.updated_at = Date.now() / 1000; // Simulate update time
-                }
-                saveCurrentProject();
-                
-                // Update UI list item
-                const listItem = document.getElementById('notes-list')?.querySelector(`li[data-note-id="${noteId}"]`);
-                const titleSpan = listItem?.querySelector('.note-item-title');
-                if (titleSpan) titleSpan.textContent = newTitle;
-                
-                showTemporaryStatus("Note updated successfully.");
-            } else {
-                showTemporaryStatus(`Failed to update note: ${result.error}`, true);
-            }
-        })
-        .catch(error => {
-            console.error("Error saving note changes:", error);
-            showTemporaryStatus(`Error updating note: ${error.message}`, true);
-        })
-        .finally(() => {
-             hideModal(viewNoteModal);
-             currentlyViewingNoteId = null;
-        });
-}
-
-function checkNotesList() {
-    const notesListPlaceholder = document.getElementById('notes-list-placeholder');
-    const hasNotes = currentProject?.notes?.length > 0;
-    if (notesListPlaceholder) {
-        notesListPlaceholder.style.display = hasNotes ? 'none' : 'block';
-    }
-}
-
-function showNoteEditor(noteIdToEdit = null) {
-    const notesListView = document.getElementById('notes-list-view');
-    const noteEditorView = document.getElementById('note-editor-view');
-    const noteEditorTitleInput = document.getElementById('note-editor-title-input'); // Use input field now
-    const noteEditorBody = document.getElementById('note-editor-body');
-    const deleteNoteBtn = document.getElementById('delete-note-btn');
-    const editorHeader = document.getElementById('note-editor-header');
-
-    if (!notesListView || !noteEditorView || !noteEditorTitleInput || !noteEditorBody || !deleteNoteBtn || !editorHeader) return;
-
-    if (noteIdToEdit) {
-        const note = notesData[noteIdToEdit];
-        if (!note) {
-            console.error(`Note not found for editing: ${noteIdToEdit}`);
-            return;
-        }
-        editorHeader.textContent = 'Edit Note';
-        noteEditorTitleInput.value = note.title;
-        noteEditorBody.value = note.body || note.content || '';
-        noteEditorView.dataset.editingNoteId = noteIdToEdit; // Store ID for saving
-        deleteNoteBtn.style.display = 'inline-flex'; // Show delete button when editing
-    } else {
-        editorHeader.textContent = 'New Note';
-        noteEditorTitleInput.value = ''; // Clear title for new note
-        noteEditorBody.value = '';
-        delete noteEditorView.dataset.editingNoteId; // Remove editing ID
-        deleteNoteBtn.style.display = 'none'; // Hide delete button for new note
-    }
-
-    notesListView.style.display = 'none';
-    noteEditorView.style.display = 'flex';
-    noteEditorTitleInput.focus();
-}
-
-function showNotesList() {
-    const notesListView = document.getElementById('notes-list-view');
-    const noteEditorView = document.getElementById('note-editor-view');
-    if (!notesListView || !noteEditorView) return;
-    noteEditorView.style.display = 'none';
-    notesListView.style.display = 'block';
-    renderNotesList(); // Re-render list when showing it
-}
-
-function saveNote() {
-    const noteEditorView = document.getElementById('note-editor-view');
-    const noteEditorTitleInput = document.getElementById('note-editor-title-input');
-    const noteEditorBody = document.getElementById('note-editor-body');
-    if (!noteEditorView || !noteEditorTitleInput || !noteEditorBody) return;
-
-    const content = noteEditorBody.value.trim();
-    const title = noteEditorTitleInput.value.trim() || 'Untitled Note';
-    const editingNoteId = noteEditorView.dataset.editingNoteId;
-
-    const noteData = {
-        title: title,
-        content: content // Send `content` to backend
-    };
-    if (editingNoteId) noteData.id = editingNoteId;
-
-    api.saveNote(currentProject.id, noteData)
-        .then(result => {
-            if (result.success) {
-                const savedNoteId = result.note_id || editingNoteId;
-                const updatedNoteData = {
-                    id: savedNoteId,
-                    title: title,
-                    body: content, // Store as body locally
-                    content: content, 
-                    created_at: result.created_at || Date.now() / 1000,
-                    updated_at: result.updated_at || Date.now() / 1000
-                };
-
-                if (!editingNoteId) { // New note
-                    currentProject.notes.push(updatedNoteData);
-                } else { // Updated note
-                    const index = currentProject.notes.findIndex(n => n.id === editingNoteId);
-                    if (index !== -1) currentProject.notes[index] = updatedNoteData;
-                    else currentProject.notes.push(updatedNoteData); // Add if somehow missing
-                }
-                notesData[savedNoteId] = updatedNoteData; // Update cache
-                saveCurrentProject();
-                showNotesList(); // This will re-render the list
-                showTemporaryStatus('Note saved successfully!');
-            } else {
-                showTemporaryStatus(`Failed to save note: ${result.error}`, true);
-            }
-        })
-        .catch(error => {
-            console.error("Error saving note:", error);
-            showTemporaryStatus(`Error saving note: ${error.message}`, true);
-        });
-}
-
-function deleteNote() {
-    const noteEditorView = document.getElementById('note-editor-view');
-    const noteId = noteEditorView?.dataset.editingNoteId;
-    if (!noteId || !confirm("Are you sure you want to delete this note?")) return;
-    api.deleteNote(currentProject.id, noteId)
-        .then(result => {
-            if (result.success) {
-                deleteNoteFromList(noteId); // Handles local data & UI removal
-                showNotesList();
-                showTemporaryStatus('Note deleted successfully!');
-            } else {
-                showTemporaryStatus(`Failed to delete note: ${result.error}`, true);
-            }
-        })
-        .catch(error => {
-            console.error("Error deleting note:", error);
-            showTemporaryStatus(`Error deleting note: ${error.message}`, true);
-        });
-}
-
 // --- Settings Modal Logic (Basic Structure) ---
 function loadSettings() {
     const settings = currentProject.settings || { chat_settings: {}, ui_settings: {} };
@@ -926,11 +687,14 @@ function updateProjectUI() {
         projectTitleDisplay.textContent = currentProject.title;
         document.title = `Laira - ${currentProject.title}`;
     }
-    renderNotesList(); // Re-render notes list
     loadSourceList(currentProject.id); // Reload source list
     loadSettings(); // Load settings into modal
     checkSourceList(); // Update chat enabled state
-    checkNotesList(); // Update notes placeholder
+    if (typeof globalFetchNotes === 'function') {
+        globalFetchNotes();
+    } else {
+        console.warn("Notes panel cannot be refreshed automatically (globalFetchNotes missing).");
+    }
 }
 
 // --- Load Initial Project Data ---
@@ -938,19 +702,16 @@ async function loadProjectData(projectId) {
     console.log(`Starting to load project data for ${projectId}`);
     try {
         // Fetch all data concurrently
-        const [notes, settings, history, filesResponse] = await Promise.all([
-            api.getNotes(projectId),
+        const [settings, history, filesResponse] = await Promise.all([
             api.getSettings(projectId),
             api.getChatHistory(projectId),
             api.loadProjectFiles(projectId)
         ]);
 
-        console.log("Loaded notes:", notes);
         console.log("Loaded settings:", settings);
         console.log("Loaded chat history:", history);
         console.log("Loaded files response:", filesResponse);
 
-        currentProject.notes = notes || [];
         currentProject.settings = settings || { chat_settings: {}, ui_settings: {} };
         currentProject.chatHistory = history || [];
 
@@ -966,10 +727,10 @@ async function loadProjectData(projectId) {
         }));
 
         // Update UI after all data is loaded
-        updateProjectUI(); // This will call renderNotesList, loadSourceList, loadSettings etc.
+        updateProjectUI(); // This will call loadSourceList, loadSettings etc.
         populateChatHistory(currentProject.chatHistory);
 
-        console.log("Project data loaded and UI updated:", currentProject);
+        console.log("Project data loaded and UI updated (excluding notes managed by app.js):", currentProject);
         return true;
     } catch (error) {
         console.error("Error loading project data:", error);
@@ -1028,7 +789,7 @@ export function setupProjectViewListeners(projectId) {
     const notesList = document.getElementById('notes-list');
     const noteEditorView = document.getElementById('note-editor-view');
     const saveNoteBtn = document.getElementById('save-note-btn');
-    const deleteNoteBtnEditor = noteEditorView?.querySelector('#delete-note-btn'); // Specific delete btn in editor
+    const deleteNoteBtnEditor = noteEditorView?.querySelector('#delete-note-btn');
     const cancelNoteBtn = document.getElementById('cancel-note-btn');
     const viewNoteModal = document.getElementById('view-note-modal');
     const saveViewNoteBtn = document.getElementById('save-view-note-btn');
@@ -1060,11 +821,9 @@ export function setupProjectViewListeners(projectId) {
         if (event.target.matches('.modal-overlay')) hideModal(event.target);
         if (event.target.matches('.settings-cancel-btn')) hideModal(event.target.closest('.modal-overlay'));
         if (event.target.matches('#cancel-note-btn')) showNotesList(); // Handle cancel button for note editor
-        // Add cancel for view note modal?
-         if (event.target.matches('.view-note-cancel-btn')) {
+        if (event.target.matches('.view-note-cancel-btn')) {
             hideModal(viewNoteModal);
-            currentlyViewingNoteId = null;
-         }
+        }
     });
 
     // File Upload (Drag & Drop, Input)
@@ -1118,13 +877,13 @@ export function setupProjectViewListeners(projectId) {
          });
     }
     if (chatArea) {
-        chatArea.addEventListener('click', (e) => {
-            const messageElement = e.target.closest('.message');
+        chatArea.addEventListener('click', async (event) => {
+            const messageElement = event.target.closest('.message');
             if (!messageElement) return;
             const messageId = messageElement.dataset.messageId;
             // Delete Message
-            if (e.target.closest('.delete-msg-btn')) {
-                e.stopPropagation();
+            if (event.target.closest('.delete-msg-btn')) {
+                event.stopPropagation();
                 if (confirm('Are you sure?')) {
                     const msgIndex = currentProject.chatHistory.findIndex(msg => msg.id === messageId);
                     if (msgIndex !== -1) {
@@ -1135,60 +894,54 @@ export function setupProjectViewListeners(projectId) {
                     checkChatAreaPlaceholder();
                 }
             }
-            // Pin Message
-            else if (e.target.closest('.pin-message-btn')) {
-                e.stopPropagation(); if (isPinning) return; isPinning = true;
-                const pinButton = e.target.closest('.pin-message-btn');
+            // Pin Message Logic (MODIFIED)
+            if (event.target.closest('.pin-message-btn')) {
+                event.stopPropagation(); if (isPinning) return; isPinning = true;
+                const pinButton = event.target.closest('.pin-message-btn');
+                const messageElement = event.target.closest('.chat-message'); // Get parent message
+                const sender = messageElement?.classList.contains('user-message') ? 'User' : 'Assistant'; // Determine sender
                 const encodedText = pinButton.dataset.messageText;
-                if (!encodedText) { isPinning = false; return; }
+                if (!encodedText || !sender) { isPinning = false; return; } // Need sender too
                 const messageText = decodeURIComponent(encodedText);
-                const sentences = messageText.split(/[.!?]/);
-                let noteTitle = sentences[0]?.trim();
-                if (!noteTitle || noteTitle.length > 60) noteTitle = messageText.substring(0, 50).trim() + (messageText.length > 50 ? '...' : '');
-                if (!noteTitle) noteTitle = "Pinned Note";
-                const noteBody = messageText;
-                const noteId = `note-${nextNoteId++}`; // Use internal counter
-                const newNoteData = { id: noteId, title: noteTitle, body: noteBody, content: noteBody, created_at: Date.now()/1000, updated_at: Date.now()/1000 }; // Add timestamps
                 
-                // Save pinned note via API
-                api.saveNote(currentProject.id, { title: noteTitle, content: noteBody })
-                    .then(result => {
-                        if (result.success) {
-                            newNoteData.id = result.note_id; // Use ID from backend
-                            notesData[newNoteData.id] = newNoteData;
-                            currentProject.notes.push(newNoteData);
-                            saveCurrentProject();
-                            renderNoteListItem(newNoteData);
-                            checkNotesList();
-                            showTemporaryStatus("Note created from pinned message.");
+                // Generate Title (Improved)
+                let noteTitle = messageText.split(/[\n.!?]/)[0]?.trim(); // First sentence/line
+                if (!noteTitle || noteTitle.length > 60) noteTitle = messageText.substring(0, 50).trim() + (messageText.length > 50 ? '...' : '');
+                if (!noteTitle) noteTitle = "Pinned from Chat";
+                noteTitle = `Pinned: ${sender} - ${noteTitle}`;
+
+                const noteBody = messageText;
+
+                console.log(`Pinning message. Title: ${noteTitle}`);
+                showTemporaryStatus("Pinning message to notes...");
+                
+                try {
+                    // Call API to save the note
+                    const result = await api.saveNote(currentProject.id, { title: noteTitle, content: noteBody }); // Corrected: Use saveNote
+                    
+                    if (result && result.success) {
+                        showTemporaryStatus("Message pinned successfully!");
+                        // Refresh notes list using the global function from app.js
+                        if (typeof globalFetchNotes === 'function') {
+                            globalFetchNotes();
                         } else {
-                            showTemporaryStatus(`Failed to pin message: ${result.error}`, true);
+                            console.warn("globalFetchNotes function not found. Cannot refresh notes list.");
                         }
-                    })
-                    .catch(err => {
-                         console.error("Error pinning message:", err);
-                         showTemporaryStatus(`Error pinning message: ${err.message}`, true);
-                    })
-                    .finally(() => { setTimeout(() => { isPinning = false; }, 300); });
-            }
-            // Edit Message
-            else if (e.target.closest('.edit-msg-btn')) {
-                e.stopPropagation();
-                const display = messageElement.querySelector('.message-display');
-                const editView = messageElement.querySelector('.message-edit-view');
-                const textarea = editView?.querySelector('.edit-textarea');
-                const originalMessage = currentProject.chatHistory.find(msg => msg.id === messageId);
-                if (display && editView && textarea && originalMessage) {
-                    textarea.value = originalMessage.text || originalMessage.content;
-                    display.style.display = 'none';
-                    editView.style.display = 'block';
-                    adjustTextareaHeight(textarea);
-                    textarea.focus();
+                    } else {
+                        console.error("Failed to save pinned note via API:", result);
+                        showTemporaryStatus(`Failed to pin message: ${result?.error || 'Unknown API error'}`, true);
+                    }
+                } catch (err) {
+                     console.error("Error pinning message:", err);
+                     showTemporaryStatus(`Error pinning message: ${err.message}`, true);
+                }
+                finally {
+                    setTimeout(() => { isPinning = false; }, 300); // Prevent rapid clicks
                 }
             }
-            // Cancel Edit
-            else if (e.target.closest('.edit-cancel-btn')) {
-                e.stopPropagation();
+            // Edit Message
+            else if (event.target.closest('.edit-msg-btn')) {
+                event.stopPropagation();
                 const display = messageElement.querySelector('.message-display');
                 const editView = messageElement.querySelector('.message-edit-view');
                 if (display && editView) { editView.style.display = 'none'; display.style.display = ''; }
