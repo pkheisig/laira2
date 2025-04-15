@@ -1,11 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize the notes panel when the DOM is ready
-    initializeNotesPanel();
+    // initializeNotesPanel(); // Remove direct call on DOM load
 });
 
 let globalFetchNotes = () => { console.warn('fetchNotes not initialized yet'); }; // Placeholder
 
-function initializeNotesPanel() {
+// Modify to accept projectId
+export function initializeNotesPanel(projectId) { 
+    if (!projectId) {
+        console.error("[Notes] Initialization skipped: projectId is missing.");
+        return;
+    }
+    console.log(`[Notes] Initializing notes panel for project: ${projectId}`);
+
     // Get references to DOM elements
     const notesList = document.getElementById('notes-list');
     const noteEditorView = document.getElementById('note-editor-view');
@@ -21,10 +28,6 @@ function initializeNotesPanel() {
     const noteBodyTextarea = document.getElementById('note-editor-body');
     const noteIdInput = document.getElementById('note-id-input');
 
-    // Get project_id from the URL or a data attribute
-    const pathParts = window.location.pathname.split('/');
-    const projectId = pathParts[pathParts.length - 1]; // Assumes project ID is the last part of the path
-
     // --- State Management ---
     let currentNotes = []; // Store fetched notes
 
@@ -32,12 +35,24 @@ function initializeNotesPanel() {
 
     async function fetchNotes() {
         try {
-            const response = await fetch(`/project/${projectId}/notes`); // Updated path
+            const url = `/project/${projectId}/notes`; // Log the URL
+            console.log(`[DEBUG] Fetching notes from: ${url}`); // Log the URL
+            const response = await fetch(url); // Updated path
+
+            // Log response details before trying to parse JSON
+            console.log(`[DEBUG] Response status for ${url}: ${response.status}`);
+            console.log(`[DEBUG] Response content-type for ${url}: ${response.headers.get('content-type')}`);
+            const responseText = await response.text(); // Get raw text
+            console.log(`[DEBUG] Raw response text for ${url}:`, responseText);
+
             if (!response.ok) {
+                // Use the already fetched text for error message if needed
+                 console.error(`[ERROR] fetchNotes failed with status ${response.status}. Response text: ${responseText}`);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const data = await response.json();
-            currentNotes = data.notes || []; // Assuming backend returns {"notes": [...]
+            // Attempt to parse the raw text as JSON
+            const data = JSON.parse(responseText); // Parse the raw text
+            currentNotes = data.notes || []; // Assuming backend returns {\"notes\": [...]}
             displayNotes(currentNotes);
         } catch (error) {
             console.error("Error fetching notes:", error);

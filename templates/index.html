@@ -114,6 +114,16 @@
                             <button id="delete-note-btn" class="action-button secondary-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
                         </div>
                     </div>
+
+                    <div id="project-actions" class="mb-3"></div>
+                    <div id="project-status" class="mb-3"></div>
+                    <div id="source-list-container" class="mb-3">
+                        <h5>Source Files</h5>
+                        <ul id="source-list" class="list-group"></ul>
+                    </div>
+                    <!-- Placeholder for notes or other project info -->
+                    <div id="project-notes" class="mb-3"></div>
+
                 </div>
             </aside>
         </main>
@@ -300,7 +310,6 @@
     <div id="status-message"></div>
 
     <script type="module" src="{{ url_for('static', filename='js/script.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html> 

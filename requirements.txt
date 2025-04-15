@@ -1,6 +1,6 @@
 python-dotenv
 google-cloud-aiplatform>=1.38.1  # Check for a recent version supporting Gemini and Gecko
-google-generativeai>=0.3.0  # For embedding generation and Gemini models
+google-generativeai>=0.5.0 # For Gemini API access
 protobuf>=3.20.0  # Required for Vertex AI and format conversion
 chromadb>=0.4.24 # Or a recent stable version
 customtkinter>=5.2.0 # For the GUI

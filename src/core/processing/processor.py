@@ -160,27 +160,43 @@ class DocumentProcessor:
             A dictionary with processing results and statistics
         """
         start_time = time.time()
-        try:
-            # Reset progress tracking for this specific document
-            # Note: Multi-document progress is handled in process_documents
-            # Here, we focus on the stages for *this* document
-            self._update_progress(stage=ProcessingStage.INITIALIZED)
-            
-            # Initialize result dictionary
-            result = {
-                "document_path": document_path,
-                "document_id": str(uuid.uuid4()), # Generate unique ID for this doc processing run
-                "processing_time": 0,
-                "success": False,
-                "error": None,
-                "stats": {
-                    "content_length": 0, # Renamed from text_length
-                    "page_count": 0, # Added for PDFs
-                    "chunk_count": 0,
-                    "embedding_count": 0,
-                    "stored_count": 0
-                }
+        document_id = str(uuid.uuid4()) # Generate ID upfront for logging
+        logger.info(f"[DOC:{document_id}] Starting processing for {document_path}")
+        
+        # Define total steps for progress calculation
+        total_pipeline_steps = 4 # Extract, Chunk, Embed, Store
+        
+        # Initialize result dictionary *before* try block to ensure it exists
+        result = {
+            "document_path": document_path,
+            "document_id": document_id,
+            "processing_time": 0,
+            "success": False,
+            "error": None,
+            "stats": {
+                "content_length": 0,
+                "page_count": 0,
+                "chunk_count": 0,
+                "embedding_count": 0,
+                "stored_count": 0
             }
+        }
+        
+        try:
+            # Reset/Initialize progress for this document
+            with self.progress_lock: 
+                self.progress.stage = ProcessingStage.INITIALIZED
+                self.progress.total_steps = total_pipeline_steps 
+                self.progress.current_step = 0
+                self.progress.success_count = 0
+                self.progress.error_count = 0
+                self.progress.errors = []
+                # Don't reset start_time here, use the one for the whole processor instance?
+                # Or should each doc have its own timer?
+                # For now, let's use the main instance timer for elapsed time.
+                self.progress.last_update_time = time.time()
+                if self.progress_callback:
+                    self.progress_callback(self.progress.to_dict()) # Send initial state
             
             # Initialize document metadata if not provided, add generated ID
             doc_metadata = document_metadata.copy() if document_metadata else {}
@@ -189,13 +205,18 @@ class DocumentProcessor:
             doc_metadata["file_path"] = document_path
             
             # --- Stage 1: Extract Content --- 
-            # Returns List[Document] for PDF, str for others
+            self._update_progress(stage=ProcessingStage.EXTRACTING)
+            logger.info(f"[DOC:{document_id}] Stage 1: Extracting content...")
             extracted_content = self.document_to_text(document_path, doc_metadata)
             if extracted_content is None:
-                result["error"] = self.last_error or "Failed to extract content"
-                self._update_progress(stage=ProcessingStage.FAILED)
+                error_msg = self.last_error or "Failed to extract content"
+                logger.error(f"[DOC:{document_id}] Stage 1 FAILED: {error_msg}")
+                result["error"] = error_msg
+                self._update_progress(stage=ProcessingStage.FAILED, increment_error=True, error_info={"stage": "extracting", "error": error_msg})
                 result["processing_time"] = time.time() - start_time
                 return result
+            logger.info(f"[DOC:{document_id}] Stage 1 SUCCESS.")
+            self._update_progress(increment_step=True) # Mark step complete
             
             # Update stats based on content type
             if isinstance(extracted_content, list):
@@ -207,13 +228,18 @@ class DocumentProcessor:
                  result["stats"]["page_count"] = 1 # Treat non-PDFs as single page for stats
             
             # --- Stage 2: Chunk Content --- 
-            # Handles both str and List[Document]
+            self._update_progress(stage=ProcessingStage.CHUNKING)
+            logger.info(f"[DOC:{document_id}] Stage 2: Chunking content...")
             chunks = self.text_to_chunks(extracted_content, doc_metadata) 
-            if chunks is None: # Check for None, empty list might be valid
-                result["error"] = self.last_error or "Failed to chunk content"
-                self._update_progress(stage=ProcessingStage.FAILED)
+            if chunks is None: 
+                error_msg = self.last_error or "Failed to chunk content"
+                logger.error(f"[DOC:{document_id}] Stage 2 FAILED: {error_msg}")
+                result["error"] = error_msg
+                self._update_progress(stage=ProcessingStage.FAILED, increment_error=True, error_info={"stage": "chunking", "error": error_msg})
                 result["processing_time"] = time.time() - start_time
                 return result
+            logger.info(f"[DOC:{document_id}] Stage 2 SUCCESS. Generated {len(chunks)} chunks.")
+            self._update_progress(increment_step=True) # Mark step complete
             
             result["stats"]["chunk_count"] = len(chunks)
             if len(chunks) == 0:
@@ -224,12 +250,18 @@ class DocumentProcessor:
                  return result
 
             # --- Stage 3: Generate Embeddings --- 
+            self._update_progress(stage=ProcessingStage.EMBEDDING)
+            logger.info(f"[DOC:{document_id}] Stage 3: Generating embeddings for {len(chunks)} chunks...")
             chunks_with_embeddings = self.chunks_to_embeddings(chunks)
-            if chunks_with_embeddings is None: # Check for None
-                result["error"] = self.last_error or "Failed to generate embeddings"
-                self._update_progress(stage=ProcessingStage.FAILED)
+            if chunks_with_embeddings is None: 
+                error_msg = self.last_error or "Failed to generate embeddings"
+                logger.error(f"[DOC:{document_id}] Stage 3 FAILED: {error_msg}")
+                result["error"] = error_msg
+                self._update_progress(stage=ProcessingStage.FAILED, increment_error=True, error_info={"stage": "embedding", "error": error_msg})
                 result["processing_time"] = time.time() - start_time
                 return result
+            logger.info(f"[DOC:{document_id}] Stage 3 SUCCESS. Generated embeddings for {len(chunks_with_embeddings)} chunks.")
+            self._update_progress(increment_step=True) # Mark step complete
             
             result["stats"]["embedding_count"] = len(chunks_with_embeddings)
             if len(chunks_with_embeddings) == 0:
@@ -240,45 +272,45 @@ class DocumentProcessor:
                  return result
 
             # --- Stage 4: Store Embeddings --- 
-            storage_result = self.store_embeddings(chunks_with_embeddings, collection_name)
-            if storage_result is None or not storage_result.get("success", False):
-                result["error"] = self.last_error or "Failed to store embeddings"
-                self._update_progress(stage=ProcessingStage.FAILED)
+            self._update_progress(stage=ProcessingStage.STORING)
+            logger.info(f"[DOC:{document_id}] Stage 4: Storing {len(chunks_with_embeddings)} embeddings...")
+            # Call DocumentProcessor's store_embeddings, which returns a dict on success, None on failure
+            storage_result_dict = self.store_embeddings(chunks_with_embeddings, collection_name) 
+            
+            # Check if the dictionary was returned (indicates underlying vector_store call succeeded)
+            if storage_result_dict is None:
+                # Failure occurred within self.store_embeddings (which already logged the specific error)
+                error_msg = self.last_error or "Failed to store embeddings (storage_result was None)" 
+                logger.error(f"[DOC:{document_id}] Stage 4 FAILED: {error_msg}")
+                result["error"] = error_msg
+                # Ensure progress reflects failure *without* double-counting errors
+                self._update_progress(stage=ProcessingStage.FAILED) # Error already counted in store_embeddings
                 result["processing_time"] = time.time() - start_time
                 return result
+                
+            # --- Storage Succeeded --- 
+            stored_count = storage_result_dict.get('stored_count', 0)
+            logger.info(f"[DOC:{document_id}] Stage 4 SUCCESS. Stored {stored_count} embeddings.")
+            # Don't increment step/success here, store_embeddings already did
+            # Just ensure the stage is correct
+            self._update_progress(stage=ProcessingStage.COMPLETED) 
             
-            result["stats"]["stored_count"] = storage_result.get("stored_count", 0)
-            
-            # --- Finalize --- 
+            # --- Processing Complete --- 
+            result["stats"]["stored_count"] = stored_count
             result["success"] = True
             result["processing_time"] = time.time() - start_time
-            self._update_progress(stage=ProcessingStage.COMPLETED)
-            logger.info(f"Successfully processed document: {document_path} in {result['processing_time']:.2f}s")
-            return result
-            
+            logger.info(f"[DOC:{document_id}] Processing completed successfully in {result['processing_time']:.2f}s.")
+
         except Exception as e:
-            error_time = time.time() - start_time
-            self.last_error = str(e)
-            logger.error(f"Error processing document {document_path}: {e}", exc_info=True)
-            
-            # Update progress to failed
-            self._update_progress(
-                stage=ProcessingStage.FAILED,
-                # Don't increment step/error here, let the stage-specific error handling do it
-                error_info={
-                    "stage": self.progress.stage.value, # Log stage where error occurred
-                    "error": str(e),
-                    "document_path": document_path
-                }
-            )
-            
-            return {
-                "document_path": document_path,
-                "success": False,
-                "error": str(e),
-                "processing_time": error_time,
-                "document_id": result.get("document_id", None) # Include ID if generated
-            }
+            error_msg = f"Unexpected error during document processing: {e}"
+            logger.error(f"[DOC:{document_id}] UNEXPECTED ERROR: {error_msg}", exc_info=True)
+            result["error"] = error_msg
+            # Try to capture which stage it might have failed in based on progress.stage
+            failed_stage = self.progress.stage.value if self.progress.stage != ProcessingStage.INITIALIZED else "unknown"
+            self._update_progress(stage=ProcessingStage.FAILED, increment_error=True, error_info={"stage": failed_stage, "error": error_msg})
+            result["processing_time"] = time.time() - start_time
+        
+        return result
     
     def process_documents(self, 
                           document_paths: List[str],

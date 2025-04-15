@@ -60,18 +60,15 @@ class VectorStore:
         self.collection = None
         
         # Get configuration values
-        self.base_persist_directory = self.config.get("persist_directory", self.DEFAULT_PERSIST_DIRECTORY)
-        self.project_id = self.config.get("project_id")
         self.collection_name = self.config.get("collection_name", self.DEFAULT_COLLECTION_NAME)
         self.batch_size = self.config.get("batch_size", self.DEFAULT_BATCH_SIZE)
         
         # Determine the actual persistence directory based on project_id
-        if self.project_id:
-            self.persist_directory = os.path.join(self.base_persist_directory, self.project_id, "chroma_db")
-            logger.info(f"Using project-specific ChromaDB directory: {self.persist_directory}")
-        else:
-            self.persist_directory = os.path.join(self.base_persist_directory, "chroma_db")
-            logger.info(f"Using default ChromaDB directory: {self.persist_directory}")
+        self.persist_directory = self.config.get("persist_directory", self.DEFAULT_PERSIST_DIRECTORY)
+        logger.info(f"Using ChromaDB persistence directory: {self.persist_directory}")
+        
+        # Store project_id if provided, might be used elsewhere
+        self.project_id = self.config.get("project_id")
         
         # Thread safety for client operations
         self.client_lock = threading.Lock()
@@ -294,8 +291,10 @@ class VectorStore:
             return True
             
         except Exception as e:
-            logger.warning(f"Error in _add_embeddings_with_retry: {e}, retrying...")
-            raise
+            # Log the specific exception before raising for backoff
+            logger.warning(f"Error in _add_embeddings_with_retry: {repr(e)}, retrying...") 
+            self.last_error = repr(e) # Store the more detailed error
+            raise # Re-raise the exception for backoff to catch
     
     def store_embeddings(self, 
                          embeddings_data: List[Dict[str, Any]], 
@@ -362,9 +361,42 @@ class VectorStore:
                 if not ids:
                     continue
                 
+                # Log data just before adding
+                logger.debug(f"Attempting to add batch to ChromaDB. Collection: {self.collection.name}, Batch size: {len(ids)}")
+                # Log first few IDs for reference
+                logger.debug(f"First few IDs: {ids[:min(5, len(ids))]}") 
+                # Log only metadata keys and types for brevity, check for non-primitives
+                if metadatas:
+                    try:
+                        metadata_preview = [{k: type(v).__name__ for k, v in meta.items()} for meta in metadatas[:min(2, len(metadatas))]] # Preview first 2 items
+                        logger.debug(f"Metadata Preview (Types for first ~2 items): {metadata_preview}")
+                    except Exception as meta_log_err:
+                        logger.warning(f"Could not generate metadata preview: {meta_log_err}")
+                # Maybe log embedding dimensions?
+                if embeddings:
+                    logger.debug(f"Embedding dimensions for first item: {len(embeddings[0]) if embeddings[0] else 'N/A'}")
+
                 # Store the batch with retry logic
-                if self._add_embeddings_with_retry(ids, embeddings, metadatas, documents):
+                batch_success = False
+                try:
+                    # Explicitly check the return or handle exception
+                    self._add_embeddings_with_retry(ids, embeddings, metadatas, documents)
+                    # If the above line doesn't raise, assume success for now
+                    batch_success = True 
+                except Exception as batch_add_error:
+                    # This exception should have been logged by the retry decorator already
+                    logger.error(f"_add_embeddings_with_retry failed for batch starting with ID {ids[0]}: {repr(batch_add_error)}")
+                    # We store the error from the retry function in self.last_error
+
+                if batch_success:
                     success_count += len(ids)
+                    logger.debug(f"Batch add successful for {len(ids)} items starting with ID {ids[0]}")
+                else:
+                    # If it failed without exception, log it here
+                    logger.error(f"Batch add failed for IDs starting with {ids[0]} and no exception was caught during add call. Check ChromaDB logs.")
+                    # Ensure self.last_error reflects this potential silent failure
+                    if not self.last_error:
+                         self.last_error = f"Silent batch add failure for collection {self.collection.name}"
                 
                 # Log progress for large batches
                 if total_count > self.batch_size:
@@ -374,8 +406,9 @@ class VectorStore:
             return success_count > 0
             
         except Exception as e:
-            self.last_error = str(e)
-            logger.error(f"Error storing embeddings: {e}")
+            detailed_error = repr(e) # Get detailed representation
+            self.last_error = detailed_error
+            logger.error(f"Error storing embeddings: {detailed_error}")
             return False
     
     def store_text_chunks(self, 

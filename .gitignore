@@ -62,24 +62,6 @@ logs/
 !package.json
 !package-lock.json
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -112,4 +94,6 @@ node_modules/
 # OS specific
 # Task files
 tasks.json
-tasks/ 
+tasks/
+# Chroma DB files in uploads
+uploads/*/database/**/*.bin

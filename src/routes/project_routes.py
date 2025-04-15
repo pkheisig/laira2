@@ -55,3 +55,15 @@ def list_project_files(project_id):
         return jsonify({"error": "Failed to list files"}), 500
         
     return jsonify({"files": files, "count": len(files)}), 200 
+
+@project_bp.route('/project/<project_id>/notes', methods=['GET'])
+def get_project_notes(project_id):
+    """Retrieve notes for a specific project. 
+    Currently returns an empty list as notes are handled client-side.
+    """
+    # Placeholder logic: In a real backend, you would fetch notes 
+    # from a database or file associated with project_id.
+    # For now, since app.js manages notes in localStorage, 
+    # we return an empty list.
+    print(f"GET request received for notes of project: {project_id}")
+    return jsonify({"notes": []}), 200 

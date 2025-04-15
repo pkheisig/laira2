@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import uuid
+import traceback
 
 # Assuming DocumentProcessor is accessible
 from src.core.processing.processor import DocumentProcessor
@@ -39,64 +40,131 @@ class EmbeddingTask:
             "error": self.error
         }
 
-def run_embedding_process(task):
-    """Background function to run the embedding process."""
-    try:
-        task.status = "processing"
-        # Ensure embedding_tasks is accessible (e.g., via app context or passed in)
-        # For simplicity, assuming it's globally accessible within the app context
-        # It's better to attach it to `current_app` if managing state there.
-        
-        project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], task.project_id)
-        vector_store_config = {
-            "persist_directory": os.path.join(project_upload_folder, "database"),
-            "project_id": task.project_id,
-        }
-        processor = DocumentProcessor(processor_config={"vector_store_config": vector_store_config})
-        
-        def progress_callback(progress_data):
-            task.progress = progress_data.get("progress_percentage", 0)
-            # Consider logging progress instead of printing if it gets noisy
-            # print(f"Embedding progress: {task.progress:.2f}%")
-        
-        processor.set_progress_callback(progress_callback)
-        
-        results = []
-        for i, file_path in enumerate(task.file_paths):
-            collection_name = f"project_{task.project_id}"
-            result = processor.process_document(
-                document_path=file_path,
-                collection_name=collection_name,
-                document_metadata={"project_id": task.project_id, "file_path": file_path} # Add file_path
-            )
-            results.append(result)
-            task.progress = ((i + 1) / len(task.file_paths)) * 100
-        
-        task.results = {
-            "processed_files": len(results),
-            "successful_files": sum(1 for r in results if r.get("success", False)),
-            "failed_files": sum(1 for r in results if not r.get("success", False)),
-            "details": results # Could be large, consider summarizing
-        }
-        task.status = "completed"
-        task.end_time = time.time()
-        print(f"Embedding task {task.task_id} completed.")
-        
-    except Exception as e:
-        task.status = "failed"
-        task.error = str(e)
-        task.end_time = time.time()
-        print(f"Embedding task {task.task_id} failed: {e}")
-        # Log the full traceback for detailed debugging
-        # import traceback
-        # traceback.print_exc()
+# Modify run_embedding_process to accept the app object
+def run_embedding_process(app, task):
+    """Background function to run the embedding process within app context."""
+    print(f"[TASK {task.task_id}] Starting run_embedding_process.") # Log start
+    # Use app context to ensure access to current_app.config, etc.
+    with app.app_context():
+        try:
+            task.status = "processing"
+            print(f"[TASK {task.task_id}] Status set to processing.")
+            
+            project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], task.project_id)
+            vector_store_config = {
+                "persist_directory": os.path.join(project_upload_folder, "database"),
+                "project_id": task.project_id,
+            }
+            processor = DocumentProcessor(processor_config={"vector_store_config": vector_store_config})
+            print(f"[TASK {task.task_id}] DocumentProcessor initialized.")
+            
+            # Define the task_id here to be accessible in the callback's scope
+            current_task_id = task.task_id
+            
+            def progress_callback(progress_data):
+                # Log callback invocation
+                print(f"[TASK {current_task_id}] Progress callback received: {progress_data}") 
+                
+                # Ensure progress is updated in the shared dictionary
+                new_progress = progress_data.get("progress_percentage", 0.0) # Default to 0.0
+                
+                # Update task status stored on the app object (which is a dict)
+                if hasattr(current_app, 'embedding_tasks') and current_task_id in current_app.embedding_tasks:
+                     current_app.embedding_tasks[current_task_id]['progress'] = new_progress
+                     # Also update stage and any other relevant fields from progress_data
+                     current_app.embedding_tasks[current_task_id]['stage'] = progress_data.get("stage", "unknown")
+                     current_app.embedding_tasks[current_task_id]['details'] = f"Stage: {progress_data.get('stage', '?')}, Progress: {new_progress:.1f}%"
+                     print(f"[TASK {current_task_id}] Updated task progress in shared dict to: {new_progress:.2f}% Stage: {progress_data.get('stage')}")
+                else:
+                     print(f"[TASK {current_task_id}] Warning: Task ID not found in current_app.embedding_tasks during callback.")
+
+            processor.set_progress_callback(progress_callback)
+            print(f"[TASK {task.task_id}] Progress callback set.")
+            
+            results = []
+            total_files = len(task.file_paths)
+            processed_files = 0
+            successful_files = 0 # Added counter for successful files
+
+            # Initialize task status
+            if not hasattr(current_app, 'embedding_tasks'):
+                current_app.embedding_tasks = {}
+            current_app.embedding_tasks[task.task_id] = {
+                "status": "in_progress",
+                "progress": 0.0,
+                "start_time": task.start_time,
+                "details": f"Processing {total_files} files...",
+                "results": []
+            }
+
+            print(f"[TASK {task.task_id}] Starting loop over {total_files} files.")
+            for i, file_path in enumerate(task.file_paths, 1):
+                collection_name = f"project_{task.project_id}"
+                print(f"[TASK {task.task_id}] Processing file {i}/{total_files}: {os.path.basename(file_path)}") # Log filename
+                result = processor.process_document(
+                    document_path=file_path,
+                    collection_name=collection_name,
+                    document_metadata={"project_id": task.project_id, "file_path": file_path}
+                )
+                print(f"[TASK {task.task_id}] Finished processing file {i}. Success: {result.get('success')}") # Log result
+                results.append(result)
+                processed_files += 1
+                if result.get("success"): # Check if this specific file was successful
+                    successful_files += 1
+                # Progress is updated via callback within process_document
+
+            end_time = time.time()
+            duration = end_time - task.start_time
+            print(f"[TASK {task.task_id}] Finished processing all {total_files} files in {duration:.2f} seconds.")
+            print(f"[TASK {task.task_id}] Results summary: {successful_files} successful, {total_files - successful_files} failed.")
+
+            # Determine final status based on results
+            final_status = "completed"
+            final_details = f"Processed {total_files} files in {duration:.2f}s. {successful_files} succeeded."
+            if successful_files == 0 and total_files > 0:
+                final_status = "failed"
+                final_details = f"Processed {total_files} files, but all failed. Duration: {duration:.2f}s."
+            elif successful_files < total_files:
+                final_status = "completed_with_errors" # Or keep 'completed' but reflect errors in details?
+                final_details = f"Processed {total_files} files in {duration:.2f}s. {successful_files} succeeded, {total_files - successful_files} failed."
+
+            # Update final task status
+            current_app.embedding_tasks[task.task_id].update({
+                "status": final_status,
+                "progress": 100.0, # Mark as 100% done processing the list
+                "end_time": end_time,
+                "duration": duration,
+                "details": final_details,
+                "results": results
+            })
+            print(f"[TASK {task.task_id}] Final status set to '{final_status}'. Details: {final_details}")
+
+            task.results = {
+                "processed_files": processed_files,
+                "successful_files": successful_files,
+                "failed_files": total_files - successful_files,
+                "details": results # Contains success/error info per file
+            }
+            
+            task.end_time = end_time
+            task.progress = 100 # Mark progress as 100 since the loop finished
+            
+        except Exception as e:
+            task.status = "failed"
+            task.error = f"Unhandled exception in run_embedding_process: {e}\\n{traceback.format_exc()}" # Capture full exception
+            task.end_time = time.time()
+            task.progress = 0 # Reset progress on failure
+            print(f"[TASK {task.task_id}] Embedding task failed due to unhandled exception: {e}. Status set to failed.")
+            traceback.print_exc()
 
 @embed_bp.route('/embed/<project_id>', methods=['POST'])
-# @limiter.limit("5 per hour") # Rate limiting commented out
 def trigger_embedding_route(project_id):
     """Triggers the embedding process for all compatible source files in a project."""
     print(f"Triggering embedding for project: {project_id}")
-    project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
+    # Get the actual Flask app object to pass to the thread
+    app = current_app._get_current_object()
+    
+    project_upload_folder = os.path.join(app.config['UPLOAD_FOLDER'], project_id)
     sources_folder = os.path.join(project_upload_folder, 'sources')
     
     if not os.path.exists(sources_folder):
@@ -120,38 +188,48 @@ def trigger_embedding_route(project_id):
     
     print(f"Found {len(file_paths)} files to embed for project {project_id}.")
     
-    # Ensure embedding_tasks dictionary exists on app context
-    if not hasattr(current_app, 'embedding_tasks'):
-        current_app.embedding_tasks = {}
+    if not hasattr(app, 'embedding_tasks'):
+        app.embedding_tasks = {}
 
     task = EmbeddingTask(project_id, file_paths)
-    current_app.embedding_tasks[task.task_id] = task
+    app.embedding_tasks[task.task_id] = task
     
-    thread = threading.Thread(target=run_embedding_process, args=(task,), daemon=True)
+    # Pass the app object to the target function
+    thread = threading.Thread(target=run_embedding_process, args=(app, task), daemon=True)
     thread.start()
     
     return jsonify({"success": True, "message": "Embedding started.", "task_id": task.task_id}), 202
 
 @embed_bp.route('/embed/status/<task_id>', methods=['GET'])
-# @limiter.limit("120 per minute") # Rate limiting commented out
 def check_embedding_status_route(task_id):
     """Checks the status of an ongoing embedding task."""
     if not hasattr(current_app, 'embedding_tasks') or task_id not in current_app.embedding_tasks:
         return jsonify({"error": "Task not found"}), 404
-    task = current_app.embedding_tasks[task_id]
-    return jsonify(task.to_dict()), 200
+    # Task data is now stored as a dict, return it directly
+    task_data = current_app.embedding_tasks[task_id]
+    return jsonify(task_data), 200
 
 @embed_bp.route('/embed/results/<task_id>', methods=['GET'])
-# @limiter.limit("60 per minute") # Rate limiting commented out
 def get_embedding_results_route(task_id):
     """Retrieves the results of a completed embedding task."""
     if not hasattr(current_app, 'embedding_tasks') or task_id not in current_app.embedding_tasks:
         return jsonify({"error": "Task not found"}), 404
-    task = current_app.embedding_tasks[task_id]
-    
-    if task.status == "completed":
-        return jsonify({"task_id": task.task_id, "status": task.status, "results": task.results}), 200
-    elif task.status == "failed":
-        return jsonify({"task_id": task.task_id, "status": task.status, "error": task.error}), 200 # Return 200 even for failed tasks
+    # Task data is stored as a dict
+    task_data = current_app.embedding_tasks[task_id]
+    task_status = task_data.get("status")
+
+    if task_status in ["completed", "completed_with_errors", "failed"]:
+        # Return relevant parts of the dictionary
+        response = {
+            "task_id": task_id,
+            "status": task_status,
+            "details": task_data.get("details"),
+            "results": task_data.get("results", []), # Detailed per-file results
+            "error": task_data.get("error") # Overall task error, if any
+        }
+        # Clean up response, remove None error field if status is not 'failed'
+        if task_status != "failed" and "error" in response:
+             del response["error"]
+        return jsonify(response), 200
     else:
-        return jsonify({"error": "Task not finished.", "status": task.status}), 400 # Task still pending/processing 
+        return jsonify({"error": "Task not finished.", "status": task_status}), 400
