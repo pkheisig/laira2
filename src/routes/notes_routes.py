@@ -7,9 +7,11 @@ import time
 # Create a Blueprint for note routes
 notes_bp = Blueprint('notes_bp', __name__)
 
-# Helper function to get the notes folder path
-def get_notes_folder(project_id):
-    return os.path.join(current_app.config['UPLOAD_FOLDER'], project_id, 'notes')
+# Helper function to get the notes file path
+def get_notes_file_path(project_id):
+    project_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
+    os.makedirs(project_folder, exist_ok=True)
+    return os.path.join(project_folder, 'notes.json')
 
 @notes_bp.route('/project/<project_id>/notes', methods=['POST'])
 # @limiter.limit("60 per minute") # Rate limiting commented out for now
@@ -24,10 +26,13 @@ def save_note_route(project_id):
     note_id = str(uuid.uuid4())  # Generate a unique ID for the new note
     timestamp = time.time()
 
-    notes_folder = get_notes_folder(project_id)
-    os.makedirs(notes_folder, exist_ok=True)  # Ensure the folder exists
-
-    filepath = os.path.join(notes_folder, f"{note_id}.json")
+    notes_file = get_notes_file_path(project_id)
+    # Load existing notes
+    if os.path.exists(notes_file):
+        with open(notes_file, 'r', encoding='utf-8') as f:
+            notes = json.load(f)
+    else:
+        notes = []
 
     note_data = {
         "id": note_id,
@@ -38,9 +43,10 @@ def save_note_route(project_id):
     }
 
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(note_data, f, indent=4)
-        print(f"Note saved successfully: {filepath}")
+        notes.append(note_data)
+        with open(notes_file, 'w', encoding='utf-8') as f:
+            json.dump(notes, f, indent=2)
+        print(f"Note saved successfully: {notes_file}")
         return jsonify({"success": True, "message": "Note saved successfully.", "note": note_data}), 201
     except Exception as e:
         print(f"Error saving note: {e}")
@@ -54,32 +60,33 @@ def update_note_route(project_id, note_id):
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    notes_folder = get_notes_folder(project_id)
-    filepath = os.path.join(notes_folder, f"{note_id}.json")
-
-    if not os.path.exists(filepath):
+    notes_file = get_notes_file_path(project_id)
+    if not os.path.exists(notes_file):
         return jsonify({"error": "Note not found"}), 404
-
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            note_data = json.load(f)
+        with open(notes_file, 'r', encoding='utf-8') as f:
+            notes = json.load(f)
+        # Find note
+        note = next((n for n in notes if n['id'] == note_id), None)
+        if not note:
+            return jsonify({"error": "Note not found"}), 404
 
         updated = False
         if 'title' in data:
-            note_data['title'] = data['title']
+            note['title'] = data['title']
             updated = True
         if 'content' in data:
-            note_data['content'] = data['content']
+            note['content'] = data['content']
             updated = True
         
         if updated:
-            note_data['modified_at'] = time.time()
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(note_data, f, indent=4)
-            print(f"Note updated successfully: {filepath}")
-            return jsonify({"success": True, "message": "Note updated successfully.", "note": note_data}), 200
+            note['modified_at'] = time.time()
+            with open(notes_file, 'w', encoding='utf-8') as f:
+                json.dump(notes, f, indent=2)
+            print(f"Note updated successfully: {notes_file}")
+            return jsonify({"success": True, "message": "Note updated successfully.", "note": note}), 200
         else:
-            return jsonify({"success": False, "message": "No changes provided to update.", "note": note_data}), 200
+            return jsonify({"success": False, "message": "No changes provided to update.", "note": note}), 200
 
     except Exception as e:
         print(f"Error updating note {note_id}: {e}")
@@ -89,32 +96,17 @@ def update_note_route(project_id, note_id):
 # @limiter.limit("120 per minute") # Rate limiting commented out
 def list_notes_route(project_id):
     """Lists all notes for a given project, sorted by modification date."""
-    notes_folder = get_notes_folder(project_id)
+    notes_file = get_notes_file_path(project_id)
     
     try:
-        if os.path.exists(notes_folder):
-            notes = []
-            for filename in os.listdir(notes_folder):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(notes_folder, filename)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                             note = json.load(f)
-                             # Ensure essential keys exist before appending
-                             if all(k in note for k in ('id', 'title', 'content', 'created_at', 'modified_at')):
-                                notes.append(note)
-                             else:
-                                print(f"Warning: Skipping malformed note file {filename}")
-                    except json.JSONDecodeError:
-                         print(f"Warning: Skipping invalid JSON file {filename}")
-                    except Exception as file_err:
-                         print(f"Warning: Error reading note file {filename}: {file_err}")
-                         
-            notes.sort(key=lambda x: x['modified_at'], reverse=True)
-            return jsonify({"notes": notes}), 200
+        if os.path.exists(notes_file):
+            with open(notes_file, 'r', encoding='utf-8') as f:
+                notes = json.load(f)
         else:
-            os.makedirs(notes_folder, exist_ok=True)
-            return jsonify({"notes": []}), 200
+            notes = []
+        # Sort by modified date descending
+        notes.sort(key=lambda x: x.get('modified_at', x.get('created_at', 0)), reverse=True)
+        return jsonify({"notes": notes}), 200
     except Exception as e:
         print(f"Error listing notes: {e}")
         return jsonify({"error": str(e)}), 500
@@ -123,21 +115,17 @@ def list_notes_route(project_id):
 # @limiter.limit("120 per minute") # Rate limiting commented out
 def get_note_route(project_id, note_id):
     """Retrieves a specific note by its ID."""
-    notes_folder = get_notes_folder(project_id)
-    filepath = os.path.join(notes_folder, f"{note_id}.json")
+    notes_file = get_notes_file_path(project_id)
     
     try:
-        if not os.path.exists(filepath):
+        if not os.path.exists(notes_file):
             return jsonify({"error": "Note not found"}), 404
         
-        with open(filepath, 'r', encoding='utf-8') as f:
-            note_data = json.load(f)
-        
-        # Validate essential keys exist
-        if not all(k in note_data for k in ('id', 'title', 'content', 'created_at', 'modified_at')):
-            print(f"Warning: Note data for {note_id} is malformed.")
-            # Fallback or return error
-            # For now, return what we have, but log warning
+        with open(notes_file, 'r', encoding='utf-8') as f:
+            notes = json.load(f)
+            note_data = next((n for n in notes if n['id'] == note_id), None)
+        if not note_data:
+            return jsonify({"error": "Note not found"}), 404
 
         return jsonify({
             "id": note_data.get('id', note_id), # Use provided ID if missing
@@ -157,15 +145,18 @@ def get_note_route(project_id, note_id):
 # @limiter.limit("60 per minute") # Rate limiting commented out
 def delete_note_route(project_id, note_id):
     """Deletes a specific note by its ID."""
-    notes_folder = get_notes_folder(project_id)
-    filepath = os.path.join(notes_folder, f"{note_id}.json")
+    notes_file = get_notes_file_path(project_id)
     
     try:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-            return jsonify({"success": True, "message": "Note deleted"}), 200
-        else:
+        if not os.path.exists(notes_file):
             return jsonify({"error": "Note not found"}), 404
+        with open(notes_file, 'r', encoding='utf-8') as f:
+            notes = json.load(f)
+        # Filter out deleted note
+        new_notes = [n for n in notes if n['id'] != note_id]
+        with open(notes_file, 'w', encoding='utf-8') as f:
+            json.dump(new_notes, f, indent=2)
+        return jsonify({"success": True, "message": "Note deleted"}), 200
     except Exception as e:
         print(f"Error deleting note: {e}")
         return jsonify({"error": str(e)}), 500 

@@ -14,6 +14,7 @@ import math
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import Whitespace
+from src.core.text_processing.chunking_strategies.layout_strategy import parse_pdf_to_layout_blocks, chunk_layout
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -90,6 +91,16 @@ class TextChunker:
         self.config = chunking_config or {}
         self.last_error = None
         
+        # Setup default section heading patterns (configurable across journals)
+        default_patterns = [
+            r'^(?:\d+(?:\.\d+)*)?\s*Introduction\b',
+            r'^(?:\d+(?:\.\d+)*)?\s*Results\b',
+            r'^(?:\d+(?:\.\d+)*)?\s*Discussion\b',
+            r'^(?:\d+(?:\.\d+)*)?\s*(?:Materials and Methods|Methods)\b'
+        ]
+        patterns = self.config.get('heading_patterns', default_patterns)
+        self.section_heading_patterns = [re.compile(p, re.IGNORECASE) for p in patterns]
+        
         # Initialize tokenizer for token estimation
         try:
             # Use a simple BPE tokenizer as a fallback
@@ -137,6 +148,8 @@ class TextChunker:
                 return self.chunk_by_paragraph(text, doc_metadata, **kwargs)
             elif strategy == "overlap":
                 return self.chunk_with_overlap(text, doc_metadata, **kwargs)
+            elif strategy == "layout":
+                return self.chunk_by_layout(text, doc_metadata, **kwargs)
             else:
                 error_msg = f"Unsupported chunking strategy: {strategy}"
                 self.last_error = error_msg
@@ -380,6 +393,46 @@ class TextChunker:
             chunk_index += 1
         
         return chunks
+    
+    def chunk_by_layout(self,
+                        text: str,
+                        document_metadata: Dict[str, Any],
+                        **kwargs) -> List[TextChunk]:
+        """
+        Layout-aware chunking: parse PDF into LayoutBlocks and convert to TextChunks.
+        Falls back to paragraph strategy when no layout chunks or on error.
+        """
+        # Attempt layout-based chunking if a PDF path is provided
+        pdf_path = document_metadata.get('pdf_path')
+        if pdf_path:
+            try:
+                chunks = chunk_layout(
+                    pdf_path,
+                    self.section_heading_patterns,
+                    paragraph_separator=self.config.get('paragraph_separator', self.DEFAULT_SEPARATOR),
+                    max_paragraph_length=self.config.get('max_paragraph_length', self.DEFAULT_CHUNK_SIZE),
+                    overlap_chars=self.config.get('chunk_overlap', self.DEFAULT_CHUNK_OVERLAP)
+                )
+                if chunks:
+                    return chunks
+            except Exception as e:
+                logger.warning(f"Layout chunking failed: {e}. Falling back to paragraph.")
+        # Fallback: split on paragraph separator
+        separator = self.config.get('paragraph_separator', self.DEFAULT_SEPARATOR)
+        raw_paragraphs = text.split(separator)
+        fallback_chunks: List[TextChunk] = []
+        for idx, para in enumerate(raw_paragraphs):
+            para_text = para.strip()
+            if not para_text:
+                continue
+            md = document_metadata.copy()
+            md.update({
+                'chunk_index': idx,
+                'chunk_strategy': 'paragraph',
+                'estimated_tokens': self.estimate_tokens(para_text)
+            })
+            fallback_chunks.append(TextChunk(para_text, md))
+        return fallback_chunks
     
     def estimate_tokens(self, text: str) -> int:
         """

@@ -9,14 +9,14 @@
 
 /* Panel Sizing */
 .sources-panel {
-    flex: 0 0 260px; /* Slightly wider */
+    flex: 0 0 364px; /* Increased width by 1.4x */
 }
 .chat-panel {
     flex: 1 1 auto; /* Takes up remaining space */
     min-width: 400px; /* Keep a reasonable minimum for the chat */
 }
 .notes-panel {
-    flex: 0 0 260px;
+    flex: 0 0 442px; /* Increased width by 1.7x */
 }
 
 /* Project Title Editing */
@@ -90,4 +90,16 @@ body.dark-theme .resizer {
 body.dark-theme .resizer:hover,
 body.dark-theme .resizer.resizing {
     background-color: var(--accent-color-dark);
+}
+
+/* Disabled buttons appear greyed out and unclickable */
+.action-button[disabled],
+.action-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Hide delete icon when removed */
+.source-delete-icon[disabled] {
+    display: none;
 } 

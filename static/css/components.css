@@ -287,12 +287,12 @@ body.dark-theme .panel-header {
     gap: 8px;
 }
 .panel-header .action-button {
-    padding: 4px 10px; /* Smaller header buttons */
-    font-size: 0.85em;
+    padding: 0.5vh 1vw; /* Responsive header buttons */
+    font-size: 1.5vw;
 }
 
 .panel-content {
-    padding: 16px;
+    padding: 1vh 1vw;
     flex-grow: 1;
     overflow-y: auto; /* Scrollable content */
 }
@@ -300,11 +300,11 @@ body.dark-theme .panel-header {
 
 /* --- Placeholder Box --- */
 .placeholder-box {
-    padding: 20px;
+    padding: 2vh 2vw;
+    margin: 1vh 1vw; /* Add margin */
+    border-radius: 0.5vw;
     text-align: center;
     border: 1px dashed var(--border-color-light);
-    border-radius: 4px;
-    margin: 10px; /* Add margin */
     color: var(--secondary-text-light);
 }
 body.dark-theme .placeholder-box {
@@ -312,8 +312,8 @@ body.dark-theme .placeholder-box {
     color: var(--secondary-text-dark);
 }
 .placeholder-box i {
-    font-size: 1.5em; /* Icon size */
-    margin-bottom: 10px;
+    font-size: 4vw; /* Icon size responsive */
+    margin-bottom: 1vh;
     display: block; /* Center icon */
     color: var(--secondary-text-light);
 }
@@ -329,18 +329,20 @@ body.dark-theme .placeholder-box i {
 /* --- Status Message --- */
 #status-message {
     position: fixed;
-    bottom: 20px;
+    bottom: 5vh;
     left: 50%;
     transform: translateX(-50%);
-    padding: 10px 20px;
-    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
     z-index: 2000;
     opacity: 0;
     transition: opacity 0.3s ease;
     color: white;
-    font-size: 0.9em;
+    font-size: 1rem;
     text-align: center;
     pointer-events: none; /* Allow clicking through */
+    max-width: 90vw;
+    white-space: nowrap;
 }
 #status-message.status-success {
     background-color: #28a745; /* Green */
@@ -354,7 +356,7 @@ input[type=range] {
     -webkit-appearance: none; /* Override default look */
     appearance: none;
     width: 100%; /* Full-width */
-    height: 8px; /* Track height */
+    height: 1vh; /* Track height responsive */
     background: var(--input-bg-light); /* Track background */
     border-radius: 5px;
     outline: none; 
@@ -372,15 +374,15 @@ input[type=range]:hover {
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px; /* Thumb width */
-  height: 18px; /* Thumb height */
+  width: 1.5vh; /* Thumb width responsive */
+  height: 1.5vh; /* Thumb height responsive */
   background: var(--accent-color-light); 
   border-radius: 50%;
   cursor: pointer;
 }
 input[type=range]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 1.5vh;
+  height: 1.5vh;
   background: var(--accent-color-light);
   border-radius: 50%;
   cursor: pointer;
@@ -395,7 +397,7 @@ body.dark-theme input[type=range]::-moz-range-thumb {
 
 input[type=range]::-moz-range-track {
   width: 100%;
-  height: 8px;
+  height: 1vh;
   cursor: pointer;
   background: var(--input-bg-light);
   border-radius: 5px;

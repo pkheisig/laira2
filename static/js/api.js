@@ -51,7 +51,7 @@ export const api = {
                         temperature: 0.2, 
                         top_p: 0.95, 
                         top_k: 40, 
-                        max_output_tokens: 8192 
+                        max_output_tokens: 500 
                     },
                     ui_settings: { theme: "light" }
                 };
@@ -64,7 +64,7 @@ export const api = {
                     temperature: 0.2, 
                     top_p: 0.95, 
                     top_k: 40, 
-                    max_output_tokens: 8192 
+                    max_output_tokens: 500 
                 },
                 ui_settings: { theme: "light" }
             };
@@ -158,18 +158,15 @@ export const api = {
     
     async sendMessage(projectId, message) {
         try {
-            const response = await fetch(`/ask/${projectId}`, {
+            const response = await fetch(`/chat/${projectId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ question: message })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: message })
             });
-            
             return await response.json();
         } catch (error) {
             console.error("Error sending message:", error);
-            return { success: false, error: error.message };
+            return { error: error.message };
         }
     },
     
@@ -178,7 +175,6 @@ export const api = {
             const response = await fetch(`/reset-chat/${projectId}`, {
                 method: 'POST'
             });
-            
             return await response.json();
         } catch (error) {
             console.error("Error resetting chat:", error);
@@ -212,6 +208,34 @@ export const api = {
             return await response.json();
         } catch (error) {
             console.error("Error deleting note:", error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    async saveSettings(projectId, settings) {
+        try {
+            const response = await fetch(`/project/${projectId}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    async renameProject(oldProjectId, newProjectId) {
+        try {
+            const response = await fetch(`/project/${oldProjectId}/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_project_id: newProjectId })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Error renaming project:", error);
             return { success: false, error: error.message };
         }
     }

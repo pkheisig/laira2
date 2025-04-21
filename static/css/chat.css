@@ -31,7 +31,10 @@
     color: var(--button-primary-text-light);
     align-self: flex-end;
     margin-left: auto;
-    border-bottom-right-radius: 5px;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    max-width: 80%;
+    line-height: 1.4;
 }
 body.dark-theme .user-message {
      background-color: var(--accent-color-dark);
@@ -125,14 +128,14 @@ body.dark-theme .message code {
     flex-grow: 0; 
     background: none;
     border: none;
-    padding: 2px;
+    padding: 0.5vw;
     margin: 0;
     line-height: 1; 
     cursor: pointer;
     font-size: 0.9em; 
     border-radius: 3px;
-    width: 20px; /* Smaller buttons */
-    height: 20px;
+    width: 1.5vw; /* Responsive button size */
+    height: 1.5vw;
 }
 
 .user-message .message-actions .action-btn {
@@ -231,7 +234,7 @@ body.dark-theme .edit-resubmit-btn {
 .input-area {
     display: flex;
     align-items: flex-end; /* Align items to bottom for multi-line text */
-    padding: 10px 16px;
+    padding: 1vh 1.5vw;
     border-top: 1px solid var(--border-color-light);
     background-color: var(--panel-alt-bg-light);
     flex-shrink: 0;
@@ -247,8 +250,8 @@ body.dark-theme .input-area {
     background-color: var(--input-bg-light);
     color: var(--text-color-light);
     border-radius: 18px;
-    padding: 10px 15px;
-    margin-right: 10px;
+    padding: 1vh 1vw;
+    margin-right: 1vw;
     resize: none;
     line-height: 1.4;
     max-height: 150px;
@@ -281,8 +284,8 @@ body.dark-theme #user-input:disabled {
     color: var(--button-primary-text-light);
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 3vw;
+    height: 3vw;
     display: inline-flex; /* Changed from flex */
     align-items: center;
     justify-content: center;
@@ -318,7 +321,7 @@ body.dark-theme #stop-button {
 /* Typing Indicator */
 .typing-indicator {
     display: inline-block; /* Align with text flow */
-    padding: 10px 15px;
+    padding: 1vh 1vw;
     border-radius: 18px; 
     border-bottom-left-radius: 5px; /* Match bot message */
     align-self: flex-start; /* Match bot message */
@@ -341,4 +344,71 @@ body.dark-theme #stop-button {
 @keyframes typing-bounce {
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1.0); }
+}
+
+/* Chat message bubbles */
+.chat-message {
+    display: inline-flex;
+    align-items: flex-start;
+    padding: 1vh 1vw;
+    margin: 1vh 0;
+    border-radius: 1vw;
+    max-width: 70%;
+    word-wrap: break-word;
+}
+
+/* User messages on the right with orange accent */
+.chat-message.user, .chat-message.user-message {
+    background-color: var(--accent-color-light);
+    color: var(--text-color-light);
+    align-self: flex-end;
+    margin-left: auto;
+}
+body.dark-theme .chat-message.user, body.dark-theme .chat-message.user-message {
+    background-color: var(--accent-color-dark);
+    color: var(--text-color-dark);
+}
+
+/* Assistant messages on the left */
+.chat-message.assistant, .chat-message.bot-message {
+    background-color: #add8e6;  /* Light blue for assistant messages */
+    color: var(--text-color-light);
+    align-self: flex-start;
+    margin-right: auto;
+}
+body.dark-theme .chat-message.assistant, body.dark-theme .chat-message.bot-message {
+    background-color: #004b6e;
+    color: var(--text-color-dark);
+}
+
+/* Pin button styling */
+.pin-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 1em;
+}
+
+/* Timestamp for chat messages */
+.chat-timestamp {
+    font-size: 0.75em;
+    margin-left: 8px;
+    color: #000000;
+    align-self: flex-end;
+}
+body.dark-theme .chat-timestamp {
+    color: #dddddd;
+}
+
+/* Introduce space between role label and message */
+.chat-message strong {
+    margin-right: 0.5vw;
+}
+
+/* Override panel-header action-button in chat-panel to match default .action-button */
+.chat-panel .panel-header .action-button {
+    padding: 8px 16px;
+    font-size: 0.9em;
+    border-radius: 18px;
 } 

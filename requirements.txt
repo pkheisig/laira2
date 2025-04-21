@@ -21,3 +21,6 @@ tokenizers
 fastapi
 uvicorn
 backoff>=2.2.1  # For retry logic with exponential backoff
+# Add OpenAI Python SDK for chat fallback
+openai>=0.27.0
+pytest>=7.1.0

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, current_app
+from flask import Blueprint, render_template, jsonify, current_app, request, send_from_directory
 import os
 
 project_bp = Blueprint('project_bp', __name__)
@@ -15,14 +15,10 @@ def project_view(project_id):
     
     project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
     if not os.path.exists(project_upload_folder):
-        os.makedirs(project_upload_folder)
+        os.makedirs(project_upload_folder, exist_ok=True)
         print(f"Created project directory: {project_upload_folder}")
-        
         os.makedirs(os.path.join(project_upload_folder, 'sources'), exist_ok=True)
-        os.makedirs(os.path.join(project_upload_folder, 'chat_history'), exist_ok=True)
-        os.makedirs(os.path.join(project_upload_folder, 'notes'), exist_ok=True)
         os.makedirs(os.path.join(project_upload_folder, 'database'), exist_ok=True)
-        os.makedirs(os.path.join(project_upload_folder, 'settings'), exist_ok=True)
         print(f"Created project subfolders for {project_id}")
     
     return render_template('index.html', project_id=project_id)
@@ -54,16 +50,30 @@ def list_project_files(project_id):
         print(f"Error listing project files for {project_id}: {e}")
         return jsonify({"error": "Failed to list files"}), 500
         
-    return jsonify({"files": files, "count": len(files)}), 200 
+    return jsonify({"files": files, "count": len(files)}), 200
 
-@project_bp.route('/project/<project_id>/notes', methods=['GET'])
-def get_project_notes(project_id):
-    """Retrieve notes for a specific project. 
-    Currently returns an empty list as notes are handled client-side.
-    """
-    # Placeholder logic: In a real backend, you would fetch notes 
-    # from a database or file associated with project_id.
-    # For now, since app.js manages notes in localStorage, 
-    # we return an empty list.
-    print(f"GET request received for notes of project: {project_id}")
-    return jsonify({"notes": []}), 200 
+@project_bp.route('/project/<project_id>/sources/<filename>', methods=['GET'])
+def serve_source_file(project_id, filename):
+    """Serve a source file for viewing in browser (PDF, etc.)"""
+    project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
+    sources_folder = os.path.join(project_upload_folder, 'sources')
+    return send_from_directory(sources_folder, filename)
+
+@project_bp.route('/project/<project_id>/rename', methods=['POST'])
+def rename_project_route(project_id):
+    """Renames a project folder inside UPLOAD_FOLDER."""
+    data = request.get_json() or {}
+    new_id = data.get('new_project_id')
+    if not new_id:
+        return jsonify({'error': 'new_project_id missing'}), 400
+    old_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
+    new_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], new_id)
+    if not os.path.exists(old_folder):
+        return jsonify({'error': 'project not found'}), 404
+    if os.path.exists(new_folder):
+        return jsonify({'error': 'project with new name already exists'}), 409
+    try:
+        os.rename(old_folder, new_folder)
+        return jsonify({'success': True, 'message': f'Renamed project from {project_id} to {new_id}'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 

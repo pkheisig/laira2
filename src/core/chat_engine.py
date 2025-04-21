@@ -39,7 +39,7 @@ class ChatEngine:
     DEFAULT_TEMPERATURE = 0.7  # Temperature for generation (0.0-1.0)
     DEFAULT_TOP_P = 0.95  # Top P for sampling
     DEFAULT_TOP_K = 40  # Top K for sampling
-    DEFAULT_MAX_OUTPUT_TOKENS = 1024  # Maximum number of tokens to generate
+    DEFAULT_MAX_OUTPUT_TOKENS = 200  # Maximum number of tokens to generate
     DEFAULT_N_RESULTS = 5  # Number of results to retrieve from vector store
     
     # System prompt template

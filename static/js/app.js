@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // initializeNotesPanel(); // Remove direct call on DOM load
 });
 
-let globalFetchNotes = () => { console.warn('fetchNotes not initialized yet'); }; // Placeholder
+window.globalFetchNotes = () => { console.warn('fetchNotes not initialized yet'); }; // Placeholder
 
 // Modify to accept projectId
 export function initializeNotesPanel(projectId) { 
@@ -16,12 +16,13 @@ export function initializeNotesPanel(projectId) {
     // Get references to DOM elements
     const notesList = document.getElementById('notes-list');
     const noteEditorView = document.getElementById('note-editor-view');
-    const notesListView = document.getElementById('notes-list-view');
+    // Ensure inline editor view is hidden
+    if (noteEditorView) noteEditorView.style.display = 'none';
     const viewNoteModal = document.getElementById('view-note-modal');
     const viewNoteTitle = document.getElementById('view-note-title');
     const viewNoteBody = document.getElementById('view-note-body-textarea');
     const addNoteBtn = document.querySelector('.add-note-btn');
-    const saveNoteBtn = document.getElementById('save-note-btn');
+    const saveNoteBtn = document.getElementById('save-note-btn'); // Unused
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
     const closeModalBtn = document.getElementById('close-view-modal-btn');
     const noteTitleInput = document.getElementById('note-editor-title');
@@ -138,48 +139,42 @@ export function initializeNotesPanel(projectId) {
 
     function displayNotes(notes) {
         notesList.innerHTML = ''; // Clear existing list
-        const placeholder = document.getElementById('notes-list-placeholder'); // Get placeholder li
-
+        // If no notes, display placeholder message
         if (!notes || notes.length === 0) {
-             if(placeholder) placeholder.style.display = 'block'; // Show placeholder
-            // notesList.innerHTML = '<li class="no-notes">No notes yet.</li>';
+            notesList.innerHTML = `
+                <li class="placeholder-box" style="margin:1vh 1vw; text-align:center; list-style:none;">
+                    <i class="fas fa-sticky-note" style="font-size:4vw; margin-bottom:1vh; display:block; color:var(--secondary-text-light);"></i>
+                    <p style="margin:0;">Saved notes will appear here.</p>
+                </li>
+            `;
             return;
         }
-
-        if(placeholder) placeholder.style.display = 'none'; // Hide placeholder
 
         notes.forEach(note => {
             const listItem = document.createElement('li');
             listItem.classList.add('note-list-item');
-            listItem.dataset.noteId = note.id; // Store note ID
-
-            // Note Icon (Use Font Awesome)
-            const icon = document.createElement('i'); // Changed span to i
-            icon.classList.add('fas', 'fa-sticky-note', 'note-icon'); // Added Font Awesome classes
-            // icon.textContent = '📝'; // Removed text content
-            listItem.appendChild(icon);
-
-            // Note Title
-            const titleSpan = document.createElement('span');
-            titleSpan.textContent = note.title || 'Untitled Note'; // Handle untitled notes
-            listItem.appendChild(titleSpan);
-
-            // Delete Button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.classList.add('note-delete-btn');
-            deleteBtn.textContent = '🗑️'; // Use an icon or text
-            deleteBtn.title = "Delete Note";
-            deleteBtn.onclick = (event) => {
-                event.stopPropagation(); // Prevent triggering the view action
-                deleteNote(note.id);
-            };
-            listItem.appendChild(deleteBtn);
-
-            // Click listener for viewing the note
-            listItem.onclick = () => {
-                viewNote(note.id);
-            };
-
+            listItem.dataset.noteId = note.id;
+            // Build inner HTML with icon container, title, and timestamp
+            const dt = new Date((note.modified_at || note.created_at) * 1000);
+            const now = new Date();
+            const diff = now - dt;
+            const timeOpts = { hour: '2-digit', minute: '2-digit' };
+            const tsText = diff > 24*60*60*1000
+                ? dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], timeOpts)
+                : dt.toLocaleTimeString([], timeOpts);
+            listItem.innerHTML = `
+                <div class="item-icon-container">
+                    <span class="note-icon"><i class="fas fa-sticky-note"></i></span>
+                    <button class="note-delete-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
+                </div>
+                <span class="note-item-title">${note.title || 'Untitled Note'}</span>
+                <span class="note-timestamp" style="margin-left:8px;font-size:0.85em;color:var(--secondary-text-light);">${tsText}</span>
+            `;
+            // Attach delete handler
+            const deleteBtn = listItem.querySelector('.note-delete-btn');
+            deleteBtn.onclick = event => { event.stopPropagation(); deleteNote(note.id); };
+            // Attach view handler
+            listItem.onclick = () => viewNote(note.id);
             notesList.appendChild(listItem);
         });
     }
@@ -196,7 +191,7 @@ export function initializeNotesPanel(projectId) {
 
         if (note) {
             // Editing existing note
-            noteTitleInput.value = note.title;
+            noteTitleInput.textContent = note.title;
             noteBodyTextarea.value = note.content;
             noteIdInput.value = note.id; // Set hidden input value
         } else {
@@ -207,7 +202,7 @@ export function initializeNotesPanel(projectId) {
     }
 
      function clearEditor() {
-        noteTitleInput.value = '';
+        noteTitleInput.textContent = '';
         noteBodyTextarea.value = '';
         noteIdInput.value = ''; // Clear hidden input
     }
@@ -243,13 +238,21 @@ export function initializeNotesPanel(projectId) {
 
     // --- Event Listeners ---
 
+    // Show modal for new note creation
     if (addNoteBtn) {
-        addNoteBtn.onclick = () => showNoteEditor(); // Show editor for new note
+        addNoteBtn.onclick = () => {
+            if (viewNoteModal) {
+                viewNoteTitle.textContent = 'New Note';
+                viewNoteTitle.dataset.noteId = '';
+                viewNoteBody.value = '';
+                viewNoteModal.classList.add('active');
+            }
+        };
     }
 
     if (saveNoteBtn) {
         saveNoteBtn.onclick = () => {
-            const title = noteTitleInput.value.trim();
+            const title = noteTitleInput.textContent.trim();
             const content = noteBodyTextarea.value.trim();
             const noteId = noteIdInput.value;
 
@@ -289,29 +292,32 @@ export function initializeNotesPanel(projectId) {
         }
     };
 
-    // Add listener for the save button inside the view modal
+    // Save button inside view modal: handle create vs update
     const saveViewNoteBtn = document.getElementById('save-view-note-btn');
     if (saveViewNoteBtn) {
-        saveViewNoteBtn.onclick = () => {
+        saveViewNoteBtn.onclick = async () => {
             const noteId = viewNoteTitle.dataset.noteId;
-            const title = viewNoteTitle.textContent.trim(); // Title might be directly edited
+            const title = viewNoteTitle.textContent.trim();
             const content = viewNoteBody.value.trim();
-
-            if (!noteId) {
-                console.error("Cannot save changes, note ID not found.");
-                return;
+            if (!title && !content) {
+                alert('Note cannot be empty.'); return;
             }
-             if (!title && !content) { 
-                alert("Note cannot be empty.");
-                return;
+            try {
+                if (noteId) {
+                    await updateNote(noteId, title, content);
+                } else {
+                    await createNote(title, content);
+                }
+                viewNoteModal.classList.remove('active');
+                globalFetchNotes();
+            } catch (error) {
+                console.error('Error saving note:', error);
             }
-            
-            updateNote(noteId, title, content);
         };
     }
 
     // Expose fetchNotes globally
-    globalFetchNotes = fetchNotes;
+    window.globalFetchNotes = fetchNotes;
 
     // --- Initial Load ---
     fetchNotes();

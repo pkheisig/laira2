@@ -45,7 +45,7 @@ class GeminiClient:
         max_tries=DEFAULT_MAX_RETRIES,
         base=DEFAULT_RETRY_DELAY
     )
-    def generate_response(self, prompt: str) -> str:
+    def generate_response(self, prompt: str, temperature: float = None, top_p: float = None, max_output_tokens: int = None) -> str:
         """
         Generates a response from the Gemini model based on the prompt.
 
@@ -60,7 +60,15 @@ class GeminiClient:
         """
         try:
             logger.info(f"Sending prompt to Gemini model ({self.model_name}). Prompt length: {len(prompt)}")
-            response = self.model.generate_content(prompt)
+            # Pass generation parameters if provided
+            gen_kwargs = {}
+            if temperature is not None:
+                gen_kwargs['temperature'] = temperature
+            if top_p is not None:
+                gen_kwargs['top_p'] = top_p
+            if max_output_tokens is not None:
+                gen_kwargs['max_output_tokens'] = max_output_tokens
+            response = self.model.generate_content(prompt, **gen_kwargs)
             
             # Handle potential lack of response or safety blocks
             if not response.parts:

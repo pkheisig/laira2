@@ -84,7 +84,16 @@ function addSourceToListUI(filename, status = null) {
     
     if (deleteIcon) deleteIcon.addEventListener('click', handleDeleteSource);
     
-sourceList.appendChild(listItem);
+    // Double-click on a source to open in new window if viewable type
+    listItem.addEventListener('dblclick', () => {
+        const ext = filename.split('.').pop().toLowerCase();
+        const viewableExtensions = ['pdf', 'html', 'htm', 'md', 'txt'];
+        if (viewableExtensions.includes(ext)) {
+            window.open(`/project/${currentProject.id}/sources/${filename}`, '_blank');
+        }
+    });
+    
+    sourceList.appendChild(listItem);
     checkSourceListState(); // Update placeholder visibility
 }
 
@@ -128,14 +137,13 @@ async function uploadFilesToServer(formData) {
         if (response.success) {
             let uploadedFiles = response.files || [];
             // Handle single file upload response format if necessary
-            if (response.filename && !uploadedFiles.some(f => f.filename === response.filename)) { 
-                 uploadedFiles.push({ filename: response.filename, size: response.size, type: response.type });
+            if (response.filename && !uploadedFiles.some(f => f.filename === response.filename)) {
+                uploadedFiles.push({ filename: response.filename, size: response.size, type: response.type });
             }
             
-            // Update UI and potentially project data for each uploaded file
+            // Update UI for each uploaded file: remove 'Uploading...' status
             uploadedFiles.forEach(file => {
-                addSourceToListUI(file.filename, 'success');
-                // Add to currentProject.sources if managed centrally
+                updateSourceListItemStatusUI(file.filename, true);
             });
             
             showTemporaryStatus(`${uploadedFiles.length} file(s) uploaded successfully.`);

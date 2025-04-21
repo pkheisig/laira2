@@ -8,19 +8,66 @@ let currentProjectSources = []; // Keep track of sources locally if needed
 let embedBtnElement = null;
 let pollingInterval = null; // To keep track of the interval
 
+// Cache other UI elements for disabling during embedding
+let chatInputElem = null;
+let chatSendBtnElem = null;
+let dropZoneElem = null;
+let modalInputElem = null;
+
 // Function to update the embed button UI during polling
 function updateEmbedButtonUI(status, progress = null) {
     if (!embedBtnElement) return;
     if (status === 'polling') {
+        disableProjectUI();
         embedBtnElement.disabled = true;
+        embedBtnElement.classList.add('disabled');
         embedBtnElement.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${progress !== null ? Math.round(progress) + '%' : 'Embedding...'}`;
     } else if (status === 'idle') {
+        enableProjectUI();
         embedBtnElement.disabled = false;
+        embedBtnElement.classList.remove('disabled');
+        // Restore visual styles
+        embedBtnElement.style.opacity = '';
+        embedBtnElement.style.cursor = '';
         embedBtnElement.innerHTML = '<i class="fas fa-project-diagram"></i> Embed';
     } else if (status === 'disabled') {
-         embedBtnElement.disabled = true;
-         embedBtnElement.innerHTML = '<i class="fas fa-project-diagram"></i> Embed'; // Keep text, just disable
+        // Permanently disable embed button; keep chat and upload enabled
+        enableProjectUI();
+        embedBtnElement.disabled = true;
+        embedBtnElement.classList.add('disabled');
+        // Apply visual disabled styles
+        embedBtnElement.style.opacity = '0.5';
+        embedBtnElement.style.cursor = 'not-allowed';
+        embedBtnElement.innerHTML = '<i class="fas fa-project-diagram"></i> Embed';
     }
+}
+
+// Disable project actions (embedding, chat, source upload) during embedding
+function disableProjectUI() {
+    // Disable chat input and send button
+    chatInputElem = chatInputElem || document.getElementById('user-input');
+    chatSendBtnElem = chatSendBtnElem || document.getElementById('send-button');
+    if (chatInputElem) chatInputElem.disabled = true;
+    if (chatSendBtnElem) chatSendBtnElem.disabled = true;
+    // Disable source upload
+    dropZoneElem = dropZoneElem || document.getElementById('drop-zone');
+    modalInputElem = modalInputElem || document.getElementById('modal-file-upload');
+    if (dropZoneElem) dropZoneElem.classList.add('disabled');
+    if (modalInputElem) modalInputElem.disabled = true;
+}
+
+// Enable project actions after embedding completes
+function enableProjectUI() {
+    // Enable chat input and send button
+    chatInputElem = chatInputElem || document.getElementById('user-input');
+    chatSendBtnElem = chatSendBtnElem || document.getElementById('send-button');
+    if (chatInputElem) chatInputElem.disabled = false;
+    if (chatSendBtnElem) chatSendBtnElem.disabled = false;
+    // Enable source upload
+    dropZoneElem = dropZoneElem || document.getElementById('drop-zone');
+    modalInputElem = modalInputElem || document.getElementById('modal-file-upload');
+    if (dropZoneElem) dropZoneElem.classList.remove('disabled');
+    if (modalInputElem) modalInputElem.disabled = false;
 }
 
 // Function to poll embedding status
@@ -63,7 +110,11 @@ function pollEmbeddingStatus(taskId) {
                     pollingInterval = null;
                     const message = data.status === "completed" ? "Embedding completed successfully!" : "Embedding completed with some errors.";
                     showTemporaryStatus(message, data.status !== "completed");
-                    updateEmbedButtonUI('idle');
+                    // Permanently disable embed button and hide source delete icons
+                    updateEmbedButtonUI('disabled');
+                    document.querySelectorAll('.source-delete-icon').forEach(btn => btn.style.display = 'none');
+                    // Persist completion state
+                    localStorage.setItem(`embeddingCompleted_${projectId}`, 'true');
                     localStorage.removeItem(`embeddingTask_${projectId}`);
                     localStorage.removeItem(`embeddingStatus_${projectId}`);
                     console.log(`[EMBED] Polling finished for task ${taskId}. Status: ${data.status}`);
@@ -71,6 +122,7 @@ function pollEmbeddingStatus(taskId) {
                     clearInterval(pollingInterval);
                     pollingInterval = null;
                     showTemporaryStatus(`Embedding failed: ${data.error || data.details || "Unknown error"}`, true);
+                    // Keep embed enabled so user can retry
                     updateEmbedButtonUI('idle');
                     localStorage.removeItem(`embeddingTask_${projectId}`);
                     localStorage.removeItem(`embeddingStatus_${projectId}`);
@@ -93,6 +145,10 @@ function pollEmbeddingStatus(taskId) {
 
 // Function to handle the embed button click
 async function handleEmbedClick() {
+    // Confirm embed action because sources cannot be changed after embedding
+    if (!confirm("Embedding will lock current sources into the database. You won't be able to delete or re-embed sources without resetting. Continue?")) {
+        return;
+    }
     if (!projectId) {
         console.error('[EMBED] Project ID not found in handler.');
         showTemporaryStatus("Cannot embed: Project context lost.", true);
@@ -164,24 +220,24 @@ function checkOngoingEmbeddingTaskOnLoad() {
 
 // Setup function for this module
 export function setupEmbedding(currentProjectId) {
-    console.log(`[EMBED] Initializing embed manager for project: ${currentProjectId}`);
+    console.log(`[EMBED] Initializing embedding for project: ${currentProjectId}`);
     projectId = currentProjectId;
     embedBtnElement = document.getElementById('embed-btn');
-
-    if (!embedBtnElement) {
-        console.error("[EMBED] Embed button element not found in the DOM.");
+    // If embedding already completed previously, disable embed and hide deletion icons
+    const completed = localStorage.getItem(`embeddingCompleted_${projectId}`);
+    if (completed === 'true') {
+        // Ensure chat and upload UI are enabled
+        enableProjectUI();
+        // Disable embed button visually
+        updateEmbedButtonUI('disabled');
+        // Hide delete icons
+        document.querySelectorAll('.source-delete-icon').forEach(btn => btn.style.display = 'none');
         return;
     }
-
-    // Remove previous listeners if any (defensive)
-    // embedBtnElement.removeEventListener('click', handleEmbedClick); 
-    // Note: Direct removal needs the exact function ref. Using delegation is safer for re-runs.
-    // For now, we rely on the setupProjectViewListeners flag to prevent multiple setups.
-
-    // Add the main click listener
-    embedBtnElement.addEventListener('click', handleEmbedClick);
-
-    // Check for ongoing task
+    if (embedBtnElement) {
+        embedBtnElement.addEventListener('click', handleEmbedClick);
+    }
+    // Check for ongoing tasks or default idle
     checkOngoingEmbeddingTaskOnLoad();
     
     console.log("[EMBED] Embed manager setup complete.");

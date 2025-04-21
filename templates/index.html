@@ -78,7 +78,7 @@
                     </div>
                 </div>
                 <div class="input-area">
-                    <textarea id="user-input" placeholder="Upload a source to get started" rows="1"></textarea>
+                    <textarea id="user-input" placeholder="Embed sources to enable messaging" rows="1"></textarea>
                     <button id="send-button" title="Send message"><i class="fas fa-paper-plane"></i></button>
                     <button id="stop-button" title="Stop generating" style="display: none;"><i class="fas fa-stop"></i></button>
                 </div>
@@ -117,11 +117,6 @@
 
                     <div id="project-actions" class="mb-3"></div>
                     <div id="project-status" class="mb-3"></div>
-                    <div id="source-list-container" class="mb-3">
-                        <h5>Source Files</h5>
-                        <ul id="source-list" class="list-group"></ul>
-                    </div>
-                    <!-- Placeholder for notes or other project info -->
                     <div id="project-notes" class="mb-3"></div>
 
                 </div>
@@ -158,30 +153,52 @@
          <div id="settings-modal" class="modal-overlay">
              <div class="modal-content settings-modal-content">
                  <div class="modal-header">
-                     <h2>Chat Settings</h2>
+                     <h2>Settings</h2>
                      <button class="modal-close-btn" title="Close">&times;</button>
                  </div>
                  <div class="modal-body">
                      <form id="settings-form">
+                         <!-- Max Output Tokens: moved to top and updated options -->
                          <div class="form-group">
-                             <label for="temperature-slider">Temperature: <span id="temperature-value">0.2</span></label>
-                             <input type="range" id="temperature-slider" name="temperature" min="0.0" max="1.0" step="0.05" value="0.2">
+                             <label for="max-tokens-select">Max Output Tokens:</label>
+                             <select id="max-tokens-select" name="max_output_tokens">
+                                 <option value="200">200</option>
+                                 <option value="500">500</option>
+                                 <option value="1000">1000</option>
+                                 <option value="5000">5000</option>
+                             </select>
+                         </div>
+                         <!-- Processing Settings -->
+                         <div class="form-group">
+                             <label for="chunk-strategy-select">Chunk Strategy:</label>
+                             <select id="chunk-strategy-select" name="chunk_strategy">
+                                 <option value="size">Size</option>
+                                 <option value="paragraph">Paragraph</option>
+                                 <option value="overlap">Overlap</option>
+                                 <option value="layout">Layout</option>
+                             </select>
                          </div>
                          <div class="form-group">
-                            <label for="max-tokens-select">Max Output Tokens:</label>
-                            <select id="max-tokens-select" name="max_output_tokens">
-                                <option value="2048">2048</option>
-                                <option value="4096">4096</option>
-                                <option value="8192" selected>8192</option> 
-                                <option value="16384">16384</option>
-                                <option value="32768">32768</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
+                             <label for="max-paragraph-length-input">Max Paragraph Length:</label>
+                             <input type="number" id="max-paragraph-length-input" name="max_paragraph_length" min="100" step="100" value="1000">
+                         </div>
+                         <div class="form-group">
+                             <label for="chunk-overlap-input">Chunk Overlap Chars:</label>
+                             <input type="number" id="chunk-overlap-input" name="chunk_overlap" min="0" step="50" value="200">
+                         </div>
+                         <div class="form-group">
+                             <label for="heading-patterns-textarea">Heading Patterns (one per line):</label>
+                             <textarea id="heading-patterns-textarea" name="heading_patterns" rows="3" placeholder="^Introduction\b"></textarea>
+                         </div>
+                         <div class="form-group">
+                            <label for="temperature-slider">Temperature: <span id="temperature-value">0.2</span></label>
+                            <input type="range" id="temperature-slider" name="temperature" min="0.0" max="1.0" step="0.05" value="0.2">
+                         </div>
+                         <div class="form-group">
                              <label for="top-p-slider">Top P: <span id="top-p-value">0.95</span></label>
                              <input type="range" id="top-p-slider" name="top_p" min="0.0" max="1.0" step="0.05" value="0.95">
                          </div>
-                        <div class="form-group">
+                         <div class="form-group">
                              <label for="top-k-input">Top K:</label>
                              <input type="number" id="top-k-input" name="top_k" min="1" value="40" step="1">
                          </div>

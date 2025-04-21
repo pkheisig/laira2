@@ -9,19 +9,24 @@ settings_bp = Blueprint('settings_bp', __name__)
 
 def get_settings_path(project_id):
     project_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
-    settings_folder = os.path.join(project_folder, 'settings')
-    os.makedirs(settings_folder, exist_ok=True)
-    return os.path.join(settings_folder, 'settings.json')
+    os.makedirs(project_folder, exist_ok=True)
+    return os.path.join(project_folder, 'settings.json')
 
 DEFAULT_SETTINGS = {
     "chat_settings": {
         "temperature": 0.2,
         "top_p": 0.95,
         "top_k": 40,
-        "max_output_tokens": 8192
+        "max_output_tokens": 200
     },
     "ui_settings": {
         "theme": "light"
+    },
+    "processing_settings": {
+        "chunk_strategy": "paragraph",
+        "max_paragraph_length": 1000,
+        "chunk_overlap": 200,
+        "heading_patterns": []
     }
 }
 

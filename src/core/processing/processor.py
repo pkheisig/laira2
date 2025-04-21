@@ -44,7 +44,7 @@ class DocumentProcessor:
     DEFAULT_CHUNK_STRATEGY = "paragraph"
     DEFAULT_MAX_RETRIES = 3
     DEFAULT_RETRY_DELAY = 2
-    DEFAULT_CONCURRENT_TASKS = 5
+    DEFAULT_CONCURRENT_TASKS = 10
     
     def __init__(self, 
                  processor_config: Optional[Dict[str, Any]] = None,
@@ -230,7 +230,14 @@ class DocumentProcessor:
             # --- Stage 2: Chunk Content --- 
             self._update_progress(stage=ProcessingStage.CHUNKING)
             logger.info(f"[DOC:{document_id}] Stage 2: Chunking content...")
-            chunks = self.text_to_chunks(extracted_content, doc_metadata) 
+            # If extractor returned LangChain Documents (text+figure chunks), convert to TextChunk
+            from langchain.schema import Document as LDocument
+            if isinstance(extracted_content, list) and all(isinstance(d, LDocument) for d in extracted_content):
+                from src.core.text_processing.text_chunker import TextChunk
+                chunks = [TextChunk(text=doc.page_content, metadata=doc.metadata) for doc in extracted_content]
+            else:
+                # Otherwise chunk string content into TextChunk objects
+                chunks = self.text_to_chunks(extracted_content, doc_metadata)
             if chunks is None: 
                 error_msg = self.last_error or "Failed to chunk content"
                 logger.error(f"[DOC:{document_id}] Stage 2 FAILED: {error_msg}")
@@ -687,104 +694,41 @@ class DocumentProcessor:
     def chunks_to_embeddings(self, 
                              chunks: List[TextChunk],
                              batch_size: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
-        """
-        Generate embeddings for each chunk.
-        
-        Args:
-            chunks: List of TextChunk objects
-            batch_size: Optional batch size to override the default
-            
-        Returns:
-            A list of dictionaries with chunks and their embeddings, or None if embedding failed
-        """
         try:
-            # Update progress
+            # Update stage and step for embedding
             self._update_progress(
                 stage=ProcessingStage.EMBEDDING,
                 increment_step=True
             )
-            
-            logger.info(f"Generating embeddings for {len(chunks)} chunks")
-            
-            # Use embedder's batch size if not specified
-            batch_size = batch_size or self.embedder.batch_size
-            
-            # Initialize results
+
+            # Use batch embedding for improved performance
+            batch_size = batch_size or self.concurrent_tasks
+            texts = [chunk.get_text() for chunk in chunks]
+            logger.info(f"Generating embeddings in batches (batch_size={batch_size}) for {len(chunks)} chunks")
+            embeddings = self.embedder.generate_embeddings_batch(texts, batch_size)
+
             results = []
             success_count = 0
             error_count = 0
-            
-            # Process in batches
-            for i in range(0, len(chunks), batch_size):
-                batch = chunks[i:i+batch_size]
-                
-                # Process each chunk in the batch
-                batch_results = []
-                for chunk in batch:
-                    try:
-                        # Generate embedding with retry logic
-                        embedding = self._generate_embedding_with_retry(chunk)
-                        
-                        if embedding is None:
-                            logger.warning(f"Failed to generate embedding for chunk {chunk.metadata.get('chunk_id')}")
-                            error_count += 1
-                            continue
-                        
-                        # Create result dictionary with sanitized metadata
-                        result = {
-                            "text": chunk.get_text(),
-                            "embedding": embedding,
-                            "metadata": self._sanitize_metadata(chunk.get_metadata())
-                        }
-                        
-                        batch_results.append(result)
-                        success_count += 1
-                        
-                    except Exception as chunk_error:
-                        logger.warning(f"Error generating embedding for chunk: {chunk_error}")
-                        error_count += 1
-                        
-                        self._update_progress(
-                            error_info={
-                                "stage": ProcessingStage.EMBEDDING.value,
-                                "chunk_id": chunk.metadata.get("chunk_id"),
-                                "error": str(chunk_error)
-                            }
-                        )
-                
-                # Add batch results to overall results
-                results.extend(batch_results)
-                
-                # Log progress for large batches
-                if len(chunks) > batch_size:
-                    logger.info(f"Processed {min(i+batch_size, len(chunks))}/{len(chunks)} embeddings")
-            
-            # Check if we have any successful embeddings
-            if not results:
-                error_msg = f"Failed to generate any embeddings: {self.embedder.last_error}"
-                self.last_error = error_msg
-                logger.error(error_msg)
-                
-                self._update_progress(
-                    increment_error=True,
-                    error_info={
-                        "stage": ProcessingStage.EMBEDDING.value,
-                        "error": self.embedder.last_error or "No embeddings generated"
-                    }
-                )
-                return None
-            
-            logger.info(f"Successfully generated {success_count} embeddings, {error_count} failed")
-            
-            # Update progress
+            for chunk, embedding in zip(chunks, embeddings):
+                if embedding is not None:
+                    results.append({
+                        "text": chunk.get_text(),
+                        "embedding": embedding,
+                        "metadata": self._sanitize_metadata(chunk.get_metadata())
+                    })
+                    success_count += 1
+                else:
+                    logger.warning(f"No embedding returned for chunk {chunk.metadata.get('chunk_id')}")
+                    error_count += 1
+
+            logger.info(f"Successfully generated {success_count} embeddings, {error_count} errors")
+            # Final progress update after embedding
             self._update_progress(increment_success=True)
-            
             return results
-            
         except Exception as e:
             self.last_error = str(e)
             logger.error(f"Error generating embeddings: {e}")
-            
             self._update_progress(
                 increment_error=True,
                 error_info={
@@ -792,7 +736,6 @@ class DocumentProcessor:
                     "error": str(e)
                 }
             )
-            
             return None
     
     def store_embeddings(self, 

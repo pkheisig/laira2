@@ -92,7 +92,7 @@ class VectorStore:
                 path=self.persist_directory,
                 settings=Settings(
                     anonymized_telemetry=False,
-                    allow_reset=True
+                    allow_reset=False
                 )
             )
             

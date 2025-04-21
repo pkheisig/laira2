@@ -27,10 +27,8 @@ def upload_file_route(project_id):
     project_upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], project_id)
     # Ensure project structure exists (idempotent)
     os.makedirs(os.path.join(project_upload_folder, 'sources'), exist_ok=True)
-    os.makedirs(os.path.join(project_upload_folder, 'chat_history'), exist_ok=True)
-    os.makedirs(os.path.join(project_upload_folder, 'notes'), exist_ok=True)
+    # Ensure database folder exists for embeddings and vector store
     os.makedirs(os.path.join(project_upload_folder, 'database'), exist_ok=True)
-    os.makedirs(os.path.join(project_upload_folder, 'settings'), exist_ok=True)
     
     sources_folder = get_sources_folder(project_id)
     

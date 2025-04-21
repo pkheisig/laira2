@@ -203,13 +203,14 @@ class TextExtractor:
 2. Key elements, labels, and data shown.
 3. Main findings or patterns visible in the image.
 4. Relationship to scientific concepts if evident.
+5. Clear and concise description of the figure's scientific conclusion.
 
 Provide a concise but thorough description suitable for understanding the figure's purpose and content."""
 
                                         # Configure generation - potentially make these configurable
                                         gen_config = GenerationConfig(
                                             temperature=0.2, # Low temp for factual description
-                                            max_output_tokens=512, # Limit description length
+                                            max_output_tokens=500, # Limit description length
                                         )
 
                                         logger.info(f"Sending image {img_idx + 1} (page {page_num}) to Gemini Vision...")
@@ -271,22 +272,29 @@ Provide a concise but thorough description suitable for understanding the figure
                             image_descriptions = "\\n\\n### FIGURES AND VISUALIZATIONS ###\\n" + "\\n\\n".join(image_analysis_results)
                             processed_text += "\\n\\n" + image_descriptions
 
-                        # Create document with rich metadata
-                        metadata = {
+                        # Create base metadata
+                        base_meta = {
                             'source': file_path,
-                            'filename': os.path.basename(file_path), # Add filename
+                            'filename': os.path.basename(file_path),
                             'page': page_num,
                             'total_pages': total_pages,
-                            'section': current_section, # Last detected section header
+                            'section': current_section,
                             'has_images': bool(image_list),
                             'image_count': len(image_list),
                             'analyzed_image_count': len(image_analysis_results)
                         }
-                        doc = Document(
-                            page_content=processed_text,
-                            metadata=metadata
-                        )
-                        documents.append(doc)
+                        # 1) Text-only chunk
+                        text_meta = base_meta.copy()
+                        text_meta['chunk_type'] = 'text'
+                        doc_text = Document(page_content=processed_text, metadata=text_meta)
+                        documents.append(doc_text)
+                        # 2) Separate figure analysis chunks
+                        for idx, analysis in enumerate(image_analysis_results, 1):
+                            fig_meta = base_meta.copy()
+                            fig_meta['chunk_type'] = 'figure'
+                            fig_meta['figure_index'] = idx
+                            doc_fig = Document(page_content=analysis, metadata=fig_meta)
+                            documents.append(doc_fig)
                         page_duration = time.time() - page_start_time
                         logger.debug(f"Page {page_num} processed in {page_duration:.2f}s.")
 

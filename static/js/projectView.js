@@ -89,7 +89,7 @@ export async function setupProjectView(projectId) {
         currentProject = {
             id: decodedProjectId, title: decodedProjectId.replace(/_/g, ' '),
             modifiedDate: new Date().toISOString(), sources: [], notes: [],
-            chatHistory: [], settings: { chat_settings: { temperature: 0.2, top_p: 0.95, top_k: 40, max_output_tokens: 8192 }, ui_settings: { theme: "light" } }
+            chatHistory: [], settings: { chat_settings: { temperature: 0.2, top_p: 0.95, top_k: 40, max_output_tokens: 500 }, ui_settings: { theme: "light" } }
         };
         allProjects.push(currentProject);
         localStorage.setItem(storageKey, JSON.stringify(allProjects));
@@ -97,7 +97,7 @@ export async function setupProjectView(projectId) {
         currentProject.notes = currentProject.notes || [];
         currentProject.sources = currentProject.sources || [];
         currentProject.chatHistory = currentProject.chatHistory || [];
-        currentProject.settings = currentProject.settings || { chat_settings: { temperature: 0.2, top_p: 0.95, top_k: 40, max_output_tokens: 8192 }, ui_settings: { theme: "light" } };
+        currentProject.settings = currentProject.settings || { chat_settings: { temperature: 0.2, top_p: 0.95, top_k: 40, max_output_tokens: 500 }, ui_settings: { theme: "light" } };
         currentProject.title = currentProject.title || decodedProjectId.replace(/_/g, ' ');
     }
     
@@ -115,11 +115,40 @@ export async function setupProjectView(projectId) {
     
     const settingsModal = document.getElementById('settings-modal');
     const settingsForm = document.getElementById('settings-form');
-    if(settingsForm) settingsForm.onsubmit = (e) => { 
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn && settingsModal) {
+        settingsBtn.addEventListener('click', () => showModal(settingsModal));
+    }
+    const settingsCancelBtn = settingsModal?.querySelector('.settings-cancel-btn');
+    if (settingsCancelBtn) {
+        settingsCancelBtn.addEventListener('click', () => hideModal(settingsModal));
+    }
+    // Close settings modal when clicking the header close icon
+    const settingsCloseIcon = settingsModal?.querySelector('.modal-close-btn');
+    if (settingsCloseIcon) {
+        settingsCloseIcon.addEventListener('click', () => hideModal(settingsModal));
+    }
+    if(settingsForm) settingsForm.onsubmit = async (e) => { 
         e.preventDefault(); 
-        saveSettings(e);
+        await saveSettings(e);
         hideModal(settingsModal);
     };
+
+    // Slider display updates in settings modal
+    const tempSlider = document.getElementById('temperature-slider');
+    const tempValue = document.getElementById('temperature-value');
+    const topPSlider = document.getElementById('top-p-slider');
+    const topPValue = document.getElementById('top-p-value');
+    if (tempSlider && tempValue) {
+        tempSlider.addEventListener('input', () => {
+            tempValue.textContent = parseFloat(tempSlider.value).toFixed(2);
+        });
+    }
+    if (topPSlider && topPValue) {
+        topPSlider.addEventListener('input', () => {
+            topPValue.textContent = parseFloat(topPSlider.value).toFixed(2);
+        });
+    }
 
     console.log("[SETUP] Project view fully initialized.");
 }
@@ -127,6 +156,7 @@ export async function setupProjectView(projectId) {
 function loadSettings() {
     const settings = currentProject.settings || { chat_settings: {}, ui_settings: {} };
     const chatSettings = settings.chat_settings || {};
+    const procSettings = settings.processing_settings || {};
     const temperatureSlider = document.getElementById('temperature-slider');
     const temperatureValueSpan = document.getElementById('temperature-value');
     const topPSlider = document.getElementById('top-p-slider');
@@ -135,22 +165,59 @@ function loadSettings() {
     if (temperatureValueSpan) temperatureValueSpan.textContent = parseFloat(temperatureSlider?.value || 0.2).toFixed(2);
     if (topPSlider) topPSlider.value = chatSettings.top_p ?? 0.95;
     if (topPValueSpan) topPValueSpan.textContent = parseFloat(topPSlider?.value || 0.95).toFixed(2);
+    const maxTokensSelect = document.getElementById('max-tokens-select');
+    if (maxTokensSelect) maxTokensSelect.value = chatSettings.max_output_tokens ?? 500;
+    const topKInput = document.getElementById('top-k-input');
+    if (topKInput) topKInput.value = chatSettings.top_k ?? 40;
+    // Processing settings
+    const chunkStrategySelect = document.getElementById('chunk-strategy-select');
+    if (chunkStrategySelect) chunkStrategySelect.value = procSettings.chunk_strategy || 'paragraph';
+    const maxParaInput = document.getElementById('max-paragraph-length-input');
+    if (maxParaInput) maxParaInput.value = procSettings.max_paragraph_length || 1000;
+    const overlapInput = document.getElementById('chunk-overlap-input');
+    if (overlapInput) overlapInput.value = procSettings.chunk_overlap || 200;
+    const headingTextarea = document.getElementById('heading-patterns-textarea');
+    if (headingTextarea && Array.isArray(procSettings.heading_patterns)) {
+        headingTextarea.value = procSettings.heading_patterns.join('\n');
+    }
 }
 
-function saveSettings(event) {
+async function saveSettings(event) {
     event.preventDefault();
     const settingsModal = document.getElementById('settings-modal');
     const temperatureSlider = document.getElementById('temperature-slider');
     const topPSlider = document.getElementById('top-p-slider');
+    const maxTokensSelect = document.getElementById('max-tokens-select');
+    const topKInput = document.getElementById('top-k-input');
     const newSettings = {
         chat_settings: {
             temperature: parseFloat(temperatureSlider?.value || 0.2),
             top_p: parseFloat(topPSlider?.value || 0.95),
+            max_output_tokens: parseInt(maxTokensSelect?.value || '500', 10),
+            top_k: parseInt(topKInput?.value || '40', 10)
         },
+        processing_settings: {
+            chunk_strategy: document.getElementById('chunk-strategy-select')?.value,
+            max_paragraph_length: parseInt(document.getElementById('max-paragraph-length-input')?.value || '1000', 10),
+            chunk_overlap: parseInt(document.getElementById('chunk-overlap-input')?.value || '200', 10),
+            heading_patterns: document.getElementById('heading-patterns-textarea')?.value.split('\n').filter(Boolean)
+        }
     };
     currentProject.settings = newSettings;
+    // Persist settings to server
+    try {
+        const result = await api.saveSettings(currentProject.id, currentProject.settings);
+        if (result.success) {
+            showTemporaryStatus("Settings saved.");
+        } else {
+            showTemporaryStatus(`Error saving settings: ${result.error}`, true);
+        }
+    } catch (err) {
+        console.error("saveSettings API error:", err);
+        showTemporaryStatus("Error saving settings.", true);
+    }
+    // Update localStorage
     saveCurrentProject();
-    showTemporaryStatus("Settings saved locally.");
     hideModal(settingsModal);
 }
 
@@ -173,11 +240,30 @@ function setupTitleRenaming() {
         projectTitleDisplay.contentEditable = 'false';
         projectTitleContainer.classList.remove('editing');
         if (newTitle && newTitle !== originalTitle) {
-            projectTitleDisplay.textContent = newTitle;
-            document.title = `Laira - ${newTitle}`;
-            currentProject.title = newTitle;
-            saveCurrentProject();
-            showTemporaryStatus("Project title updated locally.");
+            // Generate new project ID from title
+            const newProjectId = encodeURIComponent(newTitle.replace(/\s+/g, '_'));
+            // Call backend to rename folder
+            api.renameProject(currentProject.id, newProjectId)
+            .then(res => {
+                if (res.success) {
+                    // Update front-end state and redirect to new project URL
+                    showTemporaryStatus(res.message);
+                    // Update local project list
+                    currentProject.id = newProjectId;
+                    currentProject.title = newTitle;
+                    saveCurrentProject();
+                    // Redirect to new project view
+                    window.location.href = `/project/${newProjectId}`;
+                } else {
+                    showTemporaryStatus(`Rename failed: ${res.error}`, true);
+                    projectTitleDisplay.textContent = originalTitle;
+                }
+            })
+            .catch(err => {
+                console.error('Error renaming project:', err);
+                showTemporaryStatus('Rename failed.', true);
+                projectTitleDisplay.textContent = originalTitle;
+            });
         } else {
             projectTitleDisplay.textContent = originalTitle;
         }

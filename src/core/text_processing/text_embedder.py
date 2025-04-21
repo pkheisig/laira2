@@ -38,7 +38,7 @@ class TextEmbedder:
     
     DEFAULT_MODEL = "text-embedding-005"  # Vertex AI model ID
     DEFAULT_LOCATION = "us-central1" # Default location for Vertex AI
-    DEFAULT_BATCH_SIZE = 5 # Vertex AI embeddings often have batch limits
+    DEFAULT_BATCH_SIZE = 20 # Increased batch size to speed up embedding
     DEFAULT_MAX_RETRIES = 3
     DEFAULT_RETRY_DELAY = 2
     DEFAULT_CACHE_SIZE = 1000
@@ -191,47 +191,37 @@ class TextEmbedder:
     def generate_embeddings_batch(self, 
                                   texts: List[Union[str, TextChunk]], 
                                   batch_size: Optional[int] = None) -> List[Optional[List[float]]]:
-        """Generate embeddings for a batch using Vertex AI."""
+        """
+        Generate embeddings for a batch using Vertex AI in fewer API calls.
+        Returns a list of embedding vectors (or None on failure) matching `texts` order.
+        """
         if not self.vertex_model:
-             logger.error("Cannot generate batch embeddings: Vertex AI model not initialized.")
-             return [None] * len(texts)
-             
-        batch_size = batch_size or self.batch_size
-        results = [None] * len(texts)
-        texts_to_process = []
-        original_indices = []
-        for i, item in enumerate(texts):
-            text_content = item.get_text() if isinstance(item, TextChunk) else item
-            if text_content and isinstance(text_content, str):
-                texts_to_process.append(text_content)
-                original_indices.append(i)
-            else:
-                logger.warning(f"Invalid item at index {i} in batch, skipping.")
+            logger.error("Cannot generate batch embeddings: Vertex AI model not initialized.")
+            return [None] * len(texts)
 
-        for i in range(0, len(texts_to_process), batch_size):
-            batch_texts = texts_to_process[i:i+batch_size]
-            batch_indices = original_indices[i:i+batch_size]
+        batch_size = batch_size or self.batch_size
+        all_embeddings: List[Optional[List[float]]] = []
+        # Split into batches
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i+batch_size]
+            # Extract raw text from TextChunk or string
+            raw_texts = [t.get_text() if isinstance(t, TextChunk) else t for t in batch]
             try:
                 self._rate_limit()
-                logger.debug(f"Processing batch of {len(batch_texts)} texts with Vertex AI.")
-                response = self.vertex_model.get_embeddings(batch_texts)
-                if len(response) != len(batch_texts):
-                     logger.error(f"Vertex AI returned {len(response)} embeddings for {len(batch_texts)} inputs.")
-                     for idx in batch_indices: results[idx] = None
-                     continue
-                for j, embedding_obj in enumerate(response):
-                     original_idx = batch_indices[j]
-                     if embedding_obj.values:
-                         results[original_idx] = embedding_obj.values
-                     else:
-                         logger.warning(f"Vertex AI returned empty embedding for index {original_idx}.")
-                         results[original_idx] = None
+                logger.debug(f"Requesting embeddings for batch size: {len(raw_texts)}")
+                response = self.vertex_model.get_embeddings(raw_texts)
+                # response: list of embedding objects
+                for item in response:
+                    if item and getattr(item, 'values', None):
+                        all_embeddings.append(item.values)
+                    else:
+                        all_embeddings.append(None)
             except Exception as e:
-                logger.error(f"Error processing batch with Vertex AI: {e}")
-                for idx in batch_indices: results[idx] = None
-                self.last_error = str(e)
-        return results
-        
+                logger.error(f"Batch embedding failed: {e}")
+                # Fill failures with None
+                all_embeddings.extend([None] * len(raw_texts))
+        return all_embeddings
+
     def embed_chunks(self, 
                      chunks: List[TextChunk], 
                      include_metadata: bool = True) -> List[Dict[str, Any]]:

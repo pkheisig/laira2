@@ -2,6 +2,7 @@
 .notes-panel .panel-content {
     display: flex; /* Use flex for list/editor swap */
     flex-direction: column;
+    gap: 10px; /* Space between add button and list */
 }
 
 /* Views Container */
@@ -52,15 +53,21 @@ body.dark-theme .note-icon {
     color: var(--accent-color-dark);
 }
 
-/* Delete button style for notes */
+/* Delete button style for notes: match sources */
 .note-delete-btn {
     /* Shared styles in components.css */
-    background-color: #dc3545; /* Red background */
+    background-color: #dc3545;
     color: white;
     opacity: 0;
     visibility: hidden;
     cursor: pointer;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 2px;
 }
 .note-list-item:hover .note-delete-btn {
     opacity: 1;
@@ -187,7 +194,7 @@ body.dark-theme .note-editor-actions {
 
 .modal-content.note-view-content {
     /* Styles for the content box itself */
-    background-color: var(--background-color);
+    background-color: var(--bg-color-light);
     padding: 20px;
     border-radius: var(--border-radius-large);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);

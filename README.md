@@ -10,6 +10,7 @@ A powerful research assistant application that helps you analyze and search thro
 - User-friendly GUI interface
 - Persistent database storage
 - Customizable search settings
+- Layout-aware chunking strategy for scientific papers: automatically detect and split into logical sections (e.g., Introduction, Results, Discussion, Methods) with context bridging and flexible heading patterns
 
 ## Prerequisites
 
