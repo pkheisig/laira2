@@ -322,8 +322,16 @@
       const grid = $('#projectsGrid'); if (!grid) return;
       grid.innerHTML = '<div class="text-slate-500">Loading projects...</div>';
       try {
-        const res = await fetch('/projects');
-        const data = await res.json();
+        const res = await fetch('/projects', { headers: { 'Accept': 'application/json' } });
+        const contentType = res.headers.get('content-type') || '';
+        const bodyText = await res.text();
+        let data;
+        if (contentType.includes('application/json')) {
+          try { data = JSON.parse(bodyText); } catch (e) { throw new Error('Invalid JSON response'); }
+        } else {
+          // Fallback: non-JSON (likely 404/HTML). Show diagnostic and bail gracefully.
+          throw new Error(`Non-JSON (${res.status} ${res.statusText})`);
+        }
         grid.innerHTML = '';
         (data.projects || []).forEach(p => {
           const card = document.createElement('a');
@@ -343,7 +351,7 @@
           grid.innerHTML = '<div class="text-slate-500">No projects yet. Create one above.</div>';
         }
       } catch (e) {
-        grid.innerHTML = `<div class="text-red-600">Failed to load projects: ${e}</div>`;
+        grid.innerHTML = `<div class=\"text-red-600\">Failed to load projects: ${e}</div>`;
       }
     }
 
