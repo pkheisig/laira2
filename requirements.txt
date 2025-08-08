@@ -6,7 +6,6 @@ google-generativeai>=0.5.0
 
 # Vertex AI (used by TextExtractor image analysis pathways)
 google-cloud-aiplatform>=1.38.1
-vertex-ai>=1.66.0 ; python_version>="3.10"
 protobuf>=3.20.0
 
 # Vector store and embeddings
@@ -25,7 +24,7 @@ PyMuPDF>=1.25.0
 langchain>=0.1.0
 
 # Optional fallback provider
-openai>=1.0.0
+openai>=0.27.0,<1.0.0
 
 # Dev / tests
 pytest>=7.1.0
