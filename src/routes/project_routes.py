@@ -8,6 +8,54 @@ def home():
     """Render the home page."""
     return render_template('index.html')
 
+@project_bp.route('/projects', methods=['GET'])
+def list_projects():
+    """Return a summary list of projects found under UPLOAD_FOLDER.
+
+    Shape matches what the frontend expects: { projects: [ { project_id, name?, description?,
+    file_count, total_size, created_at } ] }
+    """
+    upload_root = current_app.config.get('UPLOAD_FOLDER')
+    os.makedirs(upload_root, exist_ok=True)
+
+    projects = []
+    try:
+        for entry in os.listdir(upload_root):
+            project_path = os.path.join(upload_root, entry)
+            if not os.path.isdir(project_path):
+                continue
+
+            sources_path = os.path.join(project_path, 'sources')
+            file_count = 0
+            total_size = 0
+            if os.path.isdir(sources_path):
+                for root, _dirs, files in os.walk(sources_path):
+                    for fname in files:
+                        fpath = os.path.join(root, fname)
+                        try:
+                            total_size += os.path.getsize(fpath)
+                            file_count += 1
+                        except OSError:
+                            pass
+
+            try:
+                created_at = os.path.getctime(project_path)
+            except Exception:
+                created_at = None
+
+            projects.append({
+                'project_id': entry,
+                'file_count': file_count,
+                'total_size': total_size,
+                'created_at': created_at,
+            })
+    except Exception as e:
+        return jsonify({'error': f'Failed to list projects: {e}'}), 500
+
+    # Sort by most recently modified/created first for convenience
+    projects.sort(key=lambda p: p.get('created_at') or 0, reverse=True)
+    return jsonify({'projects': projects}), 200
+
 @project_bp.route('/project/<project_id>')
 def project_view(project_id):
     """Render the project page for a specific project."""
