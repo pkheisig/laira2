@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "sqlite_laira_projects": {
+      "command": "/Volumes/CrucialX9/other/laira/.cursor/.venv/bin/python",
+      "args": ["-m", "mcp_alchemy.server", "main"],
+      "env": {
+        "DB_URL": "sqlite:////Volumes/CrucialX9/other/laira/uploads/laira_projects.db"
+      }
+    },
+    "sqlite_laira_enhanced": {
+      "command": "/Volumes/CrucialX9/other/laira/.cursor/.venv/bin/python",
+      "args": ["-m", "mcp_alchemy.server", "main"],
+      "env": {
+        "DB_URL": "sqlite:////Volumes/CrucialX9/other/laira/uploads/laira_enhanced.db"
+      }
+    }
+  }
+}

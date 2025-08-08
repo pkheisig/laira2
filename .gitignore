@@ -1,99 +1,41 @@
-# .gitignore file
-.venv/
-src/__pycache__/
-*.pyc
-.env
-chroma_db_txt/
-*.md
-gen-lang-client-0722090410-a8061e135537.json
-
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+*.pyd
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-.env
-.venv
-env/
+.venv/
 venv/
-ENV/
-env.bak/
-venv.bak/
+env/
+.Python
+.pytest_cache/
+.mypy_cache/
 
-# IDE
+# OS / Editor
+.DS_Store
 .idea/
 .vscode/
 *.swp
-*.swo
-.DS_Store
 
-# Project specific
+# Environment
+.env
+.env.*
+
+# Local data & caches
+uploads/**
+!uploads/.gitkeep
+vector_store_*/
 *.db
-*.sqlite3
-*.json
-!app_settings.json
-*.log
-logs/
-*.pdf
-*.txt
-!requirements.txt
-!README.md
 
-# Google Cloud
-*.json
-!package.json
-!package-lock.json
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-
-# Added by Claude Task Master
-# Logs
-logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-dev-debug.log
-# Dependency directories
+# Node
 node_modules/
-# Environment variables
-# Editor directories and files
-.idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-# OS specific
-# Task files
-tasks.json
-tasks/
-# Chroma DB files in uploads
-uploads/*/database/**/*.bin
+.npm/
+
+# Logs
+logs/
+*.log
+
+# Coverage/Reports
+coverage/
+**/__snapshots__/

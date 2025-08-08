@@ -1,6 +1,6 @@
-# Literature AI Research Assistant
+# LAIRA — Literature AI Research Assistant
 
-A powerful research assistant application that helps you analyze and search through academic literature using AI-powered embeddings and natural language processing.
+Flask web app to upload sources, embed them with a local vector store, and chat with context grounded in your documents using Google Gemini.
 
 ## Features
 
@@ -14,16 +14,15 @@ A powerful research assistant application that helps you analyze and search thro
 
 ## Prerequisites
 
-- Python 3.8 or higher
-- Google Cloud Platform account with Vertex AI enabled
-- Google Cloud credentials (service account key)
+- Python 3.10+
+- A Google AI API key (`GOOGLE_API_KEY`) for Gemini
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/literature_ai.git
-cd literature_ai
+git clone <your fork or empty repo>
+cd laira
 ```
 
 2. Create and activate a virtual environment:
@@ -37,9 +36,14 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Set up your Google Cloud credentials:
-   - Place your service account key JSON file in the project root
-   - Update the `.env` file with your project settings
+4. Configure environment variables (create `.env`):
+```
+FLASK_SECRET_KEY=change-me
+GOOGLE_API_KEY=your-google-ai-api-key
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+```
+These are used by the web app for chat/embedding and Google sign-in.
+An example file is provided as `.env.example`.
 
 ## Configuration
 
@@ -61,10 +65,10 @@ VERTEX_GENERATIVE_MODEL=gemini-2.0-flash
 
 1. Start the application:
 ```bash
-python -m src.main_app
+python web_server.py
 ```
 
-2. Use the GUI to:
+2. Open the printed URL (default 0.0.0.0:8000-8009 available port) and:
    - Load and process documents
    - Perform semantic searches
    - Configure settings
@@ -72,4 +76,4 @@ python -m src.main_app
 
 ## License
 
-MIT License - see LICENSE file for details 
+MIT License - see `LICENSE`.

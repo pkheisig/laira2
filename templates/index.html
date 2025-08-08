@@ -1,332 +1,884 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laira {% if project_id %}- {{ project_id }}{% endif %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LAIRA — Literature AI Research Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            lava: {
+              50: '#FFF7ED', 100: '#FFEDD5', 200: '#FED7AA', 300: '#FDBA74', 400: '#FB923C', 500: '#F97316', 600: '#EA580C', 700: '#C2410C', 800: '#9A3412', 900: '#7C2D12'
+            },
+            glass: 'rgba(255,255,255,0.6)'
+          },
+          boxShadow: {
+            glass: '0 10px 30px rgba(0,0,0,0.08)'
+          },
+          backdropBlur: {
+            xs: '2px'
+          }
+        }
+      },
+      darkMode: 'class'
+    }
+  </script>
+  <script>
+    // Apply saved theme & palette classes ASAP to avoid color flicker
+    (function(){
+      try{
+        var p = localStorage.getItem('laira_palette') || 'orange';
+        var t = localStorage.getItem('laira_theme') || 'light';
+        var de = document.documentElement;
+        de.classList.add(p === 'blue' ? 'palette-blue' : 'palette-orange');
+        if (t === 'dark') de.classList.add('dark');
+      }catch(_){/* ignore */}
+    })();
+  </script>
+  <link rel="icon" href="/static/favicon.svg" />
+  <style>
+    /* Scroll styling */
+    .scroll-area { scrollbar-width: thin; }
+    .scroll-area::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 8px; }
+    .scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+    /* Accent palette via CSS variables */
+    :root { --accent-1: #FB923C; --accent-2: #F97316; --accent-text: #FB923C; }
+    html.palette-orange { --accent-1: #FB923C; --accent-2: #F97316; --accent-text: #FB923C; }
+    html.palette-blue { --accent-1: #38bdf8; --accent-2: #2563eb; --accent-text: #38bdf8; }
+
+    .accent { color: var(--accent-text); }
+    .primary-gradient { background-image: linear-gradient(to right, var(--accent-1), var(--accent-2)); }
+    .accent-link { color: var(--accent-2); }
+    .accent-link:hover { text-decoration: underline; }
+
+    /* Input focus accent */
+    .input-accent:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-1); }
+
+    /* Header button contrast fix */
+    .header-btn { transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+    .header-btn:hover { filter: none; }
+    .header-btn:disabled { opacity: .6; cursor: not-allowed; }
+    /* Chat font size variable */
+    :root { --chat-font-size: 14px; }
+    .chat-text { font-size: var(--chat-font-size); }
+
+    /* Resizable desktop layout (applies at lg and up) */
+    @media (min-width: 1024px) {
+      #layoutGrid {
+        display: grid;
+        grid-template-columns: var(--col1, 320px) 8px var(--col2, 720px) 8px var(--col3, 260px);
+        align-items: stretch;
+      }
+      .gutter {
+        cursor: col-resize;
+        background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.05), transparent);
+      }
+      .gutter:hover { background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.12), transparent); }
+    }
+    .btn-disabled, button:disabled { opacity: .6; cursor: not-allowed; filter: saturate(0.2) brightness(0.9); }
+  </style>
 </head>
-<body>
-    {% block content %}
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="/" class="flex items-center gap-2 font-semibold text-slate-800 dark:text-white">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g_orange" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#FB923C"/>
+              <stop offset="100%" stop-color="#F97316"/>
+            </linearGradient>
+            <linearGradient id="g_blue" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#2563eb"/>
+            </linearGradient>
+          </defs>
+          <g>
+            <circle cx="12" cy="12" r="10.5" stroke="currentColor" opacity="0.18"/>
+            <path id="logoFill" d="M4 12c0-4.418 3.582-8 8-8 2.761 0 5.214 1.403 6.666 3.53L12 12l6.666 4.47C17.214 18.597 14.761 20 12 20c-4.418 0-8-3.582-8-8Z" fill="url(#g_orange)"/>
+            <circle cx="12" cy="12" r="9.2" stroke="#fff" opacity="0.18"/>
+          </g>
+        </svg>
+        <span>LAIRA</span>
+      </a>
+      <div class="ml-auto flex items-center gap-3">
+        <a href="/" class="header-btn text-sm px-3 py-1 rounded-md text-slate-700 dark:text-slate-100 bg-white/60 dark:bg-white/10 border border-slate-300 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/15">Home</a>
+        <button id="btnThemeMenu" class="header-btn text-sm px-3 py-1 rounded-md text-slate-700 dark:text-slate-100 bg-white/60 dark:bg-white/10 border border-slate-300 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/15">Theme</button>
+        <div id="googleSignInHeader" class="flex items-center"></div>
+        <div id="headerUserInfo" class="hidden items-center gap-2">
+          <img id="headerUserAvatar" class="w-7 h-7 rounded-full" alt=""/>
+          <button id="btnLogoutHeader" class="text-xs text-slate-300 hover:text-red-300">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
     {% if project_id %}
-        <header class="app-header project-header">
-            <a href="{{ url_for('project_bp.home') }}" class="header-button home-link" title="Back to Home">
-                <i class="fas fa-chevron-left"></i>
-            </a>
-            <div class="project-title-container">
-                 <span id="project-title-display" contenteditable="false">{{ project_id }}</span>
-                 <button id="rename-project-btn" class="header-button rename-button" title="Rename notebook">
-                     <i class="fas fa-pencil-alt"></i>
-                 </button>
-                 <button id="save-rename-project-btn" class="header-button save-rename-button" title="Save name" style="display: none;">
-                     <i class="fas fa-check"></i>
-                 </button>
-                 <button id="cancel-rename-project-btn" class="header-button cancel-rename-button" title="Cancel rename" style="display: none;">
-                     <i class="fas fa-times"></i>
-                 </button>
-            </div>
-            <nav class="header-actions">
-                <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
-                     <i class="fas fa-sun"></i>
-                </button>
-                <button id="settings-btn" class="header-button" title="Chat Settings">
-                    <i class="fas fa-cog"></i>
-                </button>
-                <div class="user-profile-icon" title="User Account">P</div>
-            </nav>
-        </header>
+    <!-- Project Page -->
+    <script>window.PROJECT_ID = {{ project_id|tojson }};</script>
+      <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold">Project: <span class="accent" id="projTitle"></span></h1>
+        <p class="text-sm text-slate-600">Upload sources, embed files, and chat with your corpus.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnEmbed" class="primary-gradient inline-flex items-center gap-2 px-4 py-2 rounded-md text-white hover:brightness-110 btn-disabled" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="opacity-90"><path d="M12 3v18M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Embed Files
+        </button>
+        <span id="embedStatus" class="text-sm text-slate-600"></span>
+      </div>
+    </div>
 
-        <main class="project-container">
-            <aside class="panel sources-panel">
-                <div class="panel-header">
-                    <h2>Sources</h2>
-                </div>
-                <div class="panel-content">
-                    <div class="source-panel-buttons">
-                        <button class="action-button add-source-btn"><i class="fas fa-plus"></i> Add Source</button>
-                        <button id="embed-btn" class="action-button embed-btn"><i class="fas fa-project-diagram"></i> Embed</button>
-                    </div>
-                    <ul id="source-list">
-                        <!-- JS populates this -->
-                    </ul>
-                    <div id="source-list-placeholder" class="placeholder-box" style="display: none; margin-top: 20px; text-align: center;">
-                        <i class="fas fa-file-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                        <p>Add sources like PDFs or text files.</p>
-                    </div>
-                </div>
-            </aside>
-
-            <main class="panel chat-panel">
-                <div class="panel-header">
-                    <h2>Chat</h2>
-                    <div class="panel-actions">
-                         <button id="generate-summary-btn" class="action-button header-action-btn" title="Generate Summary">
-                             <i class="fas fa-stream"></i> Generate Summary 
-                         </button>
-                         <button id="clear-chat-btn" class="action-button header-action-btn" title="Clear Chat">
-                            <i class="fas fa-eraser"></i> Clear Chat
-                         </button>
-                    </div>
-                </div>
-                <div id="chat-area" class="panel-content chat-content">
-                     <div id="chat-placeholder" class="placeholder-box" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; text-align: center;">
-                        <i class="fas fa-comments" style="font-size: 3rem; margin-bottom: 16px;"></i>
-                        <h3 style="font-size: 1.2rem; font-weight: 500; margin-bottom: 16px;">Upload a source to start chatting</h3>
-                        <button class="action-button upload-shortcut-btn"><i class="fas fa-upload"></i> Upload Source</button>
-                    </div>
-                </div>
-                <div class="input-area">
-                    <textarea id="user-input" placeholder="Embed sources to enable messaging" rows="1"></textarea>
-                    <button id="send-button" title="Send message"><i class="fas fa-paper-plane"></i></button>
-                    <button id="stop-button" title="Stop generating" style="display: none;"><i class="fas fa-stop"></i></button>
-                </div>
-            </main>
-
-            <div class="resizer" data-resizer-left=".chat-panel" data-resizer-right=".notes-panel"></div>
-
-            <aside class="panel notes-panel">
-                <div class="panel-header">
-                    <h2>Notes</h2>
-                </div>
-                <div class="panel-content">
-                    <button class="action-button add-note-btn"><i class="fas fa-plus"></i> Add note</button>
-                    
-                    <!-- Note List View (Initially Visible) -->
-                    <div id="notes-list-view">
-                         <ul id="notes-list" style="display: block;"> 
-                            <li id="notes-list-placeholder" class="placeholder-box" style="margin-top: 20px; text-align: center; list-style: none;"> 
-                                <i class="fas fa-sticky-note" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                                <p>Saved notes will appear here.</p>
-                            </li>
-                            <!-- JS populates other notes here -->
-                        </ul>
-                    </div>
-
-                    <!-- Note Editor View (Initially Hidden) -->
-                    <div id="note-editor-view" style="display: none; height: 100%; display: flex; flex-direction: column;">
-                        <input type="hidden" id="note-id-input">
-                        <h3 id="note-editor-title" contenteditable="true" class="note-title-editable">New Note</h3>
-                        <textarea id="note-editor-body" placeholder="Start writing your note..." class="note-body-textarea"></textarea>
-                        <div class="note-editor-footer">
-                            <button id="save-note-btn" class="action-button primary-btn" title="Save Note"><i class="fas fa-save"></i></button>
-                            <button id="delete-note-btn" class="action-button secondary-btn" title="Delete Note"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                    </div>
-
-                    <div id="project-actions" class="mb-3"></div>
-                    <div id="project-status" class="mb-3"></div>
-                    <div id="project-notes" class="mb-3"></div>
-
-                </div>
-            </aside>
-        </main>
-
-        <div id="add-source-modal" class="modal-overlay">
-             <div class="modal-content">
-                 <div class="modal-header">
-                     <h2>Add sources</h2>
-                     <button class="modal-close-btn" title="Close">&times;</button>
-                 </div>
-                 <div class="modal-body">
-                     <p>Sources let Laira base its responses on the information that matters most to you.</p>
-                     <div id="drop-zone" class="upload-area">
-                         <input type="file" id="modal-file-upload" multiple accept=".pdf,.txt" style="display: none;">
-                         <i class="fas fa-upload"></i>
-                         <div class="upload-text">Drag & drop or <label for="modal-file-upload" class="file-label">choose file</label> to upload</div>
-                         <div class="upload-hint">Supported file types: PDF, TXT</div>
-                     </div>
-                     
-                     <!-- Add progress container for upload progress -->
-                     <div id="progress-container" style="display: none; margin-top: 15px;">
-                         <label for="upload-progress" style="display: block; margin-bottom: 5px;">Upload Progress:</label>
-                         <progress id="upload-progress" max="100" value="0" style="width: 100%;"></progress>
-                     </div>
-                 </div>
-                 <div class="modal-footer">
-                    <span class="source-limit">Source limit: 0 / 50</span>
-                 </div>
-             </div>
+      <!-- Responsive stacked on mobile; resizable grid on desktop -->
+      <div id="layoutGrid" class="space-y-6 lg:space-y-0 gap-6">
+      <!-- Sources -->
+      <section id="paneSources">
+        <div class="bg-white/70 dark:bg-white/10 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl shadow-glass">
+          <div class="p-4 border-b border-slate-200 dark:border-white/10">
+            <h2 class="font-medium">Sources</h2>
+            <p class="text-xs text-slate-500">Upload files (PDF, TXT, DOCX, CSV, MD, HTML, JSON...)</p>
+          </div>
+          <div class="p-4 space-y-3">
+            <form id="uploadForm" class="flex flex-wrap gap-2 items-center">
+              <input id="fileInput" type="file" multiple class="hidden" />
+              <button type="button" id="btnChooseFiles" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/10 text-slate-700 dark:text-slate-100 text-sm">Choose files</button>
+              <span id="fileSelection" class="text-xs text-slate-500"></span>
+              <button class="primary-gradient px-3 py-2 rounded-md text-white text-sm hover:brightness-110">Upload</button>
+            </form>
+            <div id="filesList" class="scroll-area max-h-[50vh] overflow-auto divide-y divide-slate-200 dark:divide-white/10"></div>
+          </div>
         </div>
+      </section>
 
-         <div id="settings-modal" class="modal-overlay">
-             <div class="modal-content settings-modal-content">
-                 <div class="modal-header">
-                     <h2>Settings</h2>
-                     <button class="modal-close-btn" title="Close">&times;</button>
+      <!-- Gutter 1 -->
+      <div id="gutter1" class="hidden lg:block gutter rounded"></div>
+
+      <!-- Chat (wider) -->
+      <section id="paneChat">
+        <div class="bg-white/70 dark:bg-white/10 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl shadow-glass h-[72vh] flex flex-col">
+          <div class="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+            <h2 class="font-medium">Chat</h2>
+             <div class="flex items-center gap-2">
+               <div id="authArea" class="flex items-center gap-2">
+                 <div id="userInfo" class="hidden items-center gap-2 text-xs">
+                   <img id="userAvatar" class="w-5 h-5 rounded-full" alt=""/>
+                   <span id="userName"></span>
+                   <button id="btnLogout" class="text-xs text-slate-600 hover:text-red-600">Logout</button>
                  </div>
-                 <div class="modal-body">
-                     <form id="settings-form">
-                         <!-- Max Output Tokens: moved to top and updated options -->
-                         <div class="form-group">
-                             <label for="max-tokens-select">Max Output Tokens:</label>
-                             <select id="max-tokens-select" name="max_output_tokens">
-                                 <option value="200">200</option>
-                                 <option value="500">500</option>
-                                 <option value="1000">1000</option>
-                                 <option value="5000">5000</option>
-                             </select>
-                         </div>
-                         <!-- Processing Settings -->
-                         <div class="form-group">
-                             <label for="chunk-strategy-select">Chunk Strategy:</label>
-                             <select id="chunk-strategy-select" name="chunk_strategy">
-                                 <option value="size">Size</option>
-                                 <option value="paragraph">Paragraph</option>
-                                 <option value="overlap">Overlap</option>
-                                 <option value="layout">Layout</option>
-                             </select>
-                         </div>
-                         <div class="form-group">
-                             <label for="max-paragraph-length-input">Max Paragraph Length:</label>
-                             <input type="number" id="max-paragraph-length-input" name="max_paragraph_length" min="100" step="100" value="1000">
-                         </div>
-                         <div class="form-group">
-                             <label for="chunk-overlap-input">Chunk Overlap Chars:</label>
-                             <input type="number" id="chunk-overlap-input" name="chunk_overlap" min="0" step="50" value="200">
-                         </div>
-                         <div class="form-group">
-                             <label for="heading-patterns-textarea">Heading Patterns (one per line):</label>
-                             <textarea id="heading-patterns-textarea" name="heading_patterns" rows="3" placeholder="^Introduction\b"></textarea>
-                         </div>
-                         <div class="form-group">
-                            <label for="temperature-slider">Temperature: <span id="temperature-value">0.2</span></label>
-                            <input type="range" id="temperature-slider" name="temperature" min="0.0" max="1.0" step="0.05" value="0.2">
-                         </div>
-                         <div class="form-group">
-                             <label for="top-p-slider">Top P: <span id="top-p-value">0.95</span></label>
-                             <input type="range" id="top-p-slider" name="top_p" min="0.0" max="1.0" step="0.05" value="0.95">
-                         </div>
-                         <div class="form-group">
-                             <label for="top-k-input">Top K:</label>
-                             <input type="number" id="top-k-input" name="top_k" min="1" value="40" step="1">
-                         </div>
-                     </form>
-                 </div>
-                 <div class="modal-footer">
-                      <button type="button" class="secondary-btn settings-cancel-btn">Cancel</button>
-                     <button type="submit" form="settings-form" class="primary-btn settings-save-btn">Save Settings</button>
-                 </div>
+               </div>
+               <button id="btnResetChat" class="text-xs text-slate-600 hover:text-red-600">Reset Chat</button>
+               <button id="btnSettings" class="text-xs px-2 py-1 rounded-md border border-slate-200 dark:border-white/10 hover:bg-white/50 dark:hover:bg-white/5">Model Settings</button>
              </div>
-         </div>
-
-        <!-- NEW: Note View Pop-up Modal -->
-        <div id="view-note-modal" class="modal-overlay note-view-modal">
-            <div class="modal-content note-view-content">
-                <div class="modal-header">
-                    <h2 id="view-note-title" contenteditable="true">Note Title</h2>
-                    <button class="modal-close-btn" title="Close">&times;</button>
-                </div>
-                <div class="modal-body" id="view-note-body-container">
-                    <textarea id="view-note-body-textarea" class="note-body-textarea view-mode"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button id="save-view-note-btn" class="action-button primary-btn">Save Changes</button>
-                </div>
-            </div>
+          </div>
+          <div id="chatHistory" class="flex-1 p-4 scroll-area overflow-auto space-y-4 bg-gradient-to-b from-white/80 to-white/40 dark:from-slate-900/30 dark:to-slate-900/10">
+            <!-- Messages render here -->
+          </div>
+          <form id="chatForm" class="p-3 border-t border-slate-200 dark:border-white/10 bg-transparent flex gap-2">
+            <input id="chatInput" class="chat-text input-accent flex-1 px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400" placeholder="Ask about your sources..." />
+            <button class="primary-gradient px-4 py-2 rounded-md text-white">Send</button>
+          </form>
         </div>
+      </section>
 
+      <!-- Gutter 2 -->
+      <div id="gutter2" class="hidden lg:block gutter rounded"></div>
+
+      <!-- Notes -->
+      <section id="paneNotes">
+        <div class="bg-white/70 dark:bg-white/10 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl shadow-glass h-[72vh] flex flex-col">
+          <div class="p-4 border-b border-slate-200 dark:border-white/10">
+            <h2 class="font-medium">Notes</h2>
+          </div>
+          <div id="notesList" class="flex-1 p-4 scroll-area overflow-auto space-y-3"></div>
+          <form id="noteForm" class="p-3 border-t border-slate-200 dark:border-white/10 bg-transparent space-y-2">
+            <input id="noteTitle" class="input-accent w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400" placeholder="Note title" />
+            <textarea id="noteContent" class="input-accent w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400" placeholder="Write a note..."></textarea>
+            <button class="primary-gradient w-full px-3 py-2 rounded-md text-white">Add Note</button>
+          </form>
+        </div>
+      </section>
+    </div>
     {% else %}
-        <!-- === Home Page === -->
-         <header class="app-header home-header"> 
-            <!-- Logo Removed -->
-            <div class="logo-placeholder" style="width: 80px;"></div> <!-- Empty placeholder to balance flex -->
-            <nav class="header-actions">
-                <button id="theme-toggle-btn" class="header-button" title="Toggle Theme">
-                     <i class="fas fa-sun"></i>
-                </button>
-                 <!-- Settings Button Removed -->
-                <div class="user-profile-icon" title="User Account">?</div> <!-- Changed Placeholder -->
-            </nav>
-        </header>
-        <main class="home-container">
-            <h1>LAIRA<br><span class="subtitle">Literature AI Research Assistant</span></h1>
-            <div class="notebook-section">
-                <h2>My Projects</h2>
-                <div class="view-options">
-                     <button class="action-button create-new-btn"><i class="fas fa-plus"></i> Create new</button>
-                     <div class="view-controls">
-                         <button id="view-grid-btn" class="view-btn active" title="Grid view">
-                             <i class="fas fa-th-large"></i>
-                         </button>
-                         <button id="view-list-btn" class="view-btn" title="List view">
-                             <i class="fas fa-list"></i>
-                         </button>
-                         <select id="sort-dropdown">
-                             <option value="recent">Most recent</option>
-                             <option value="alpha">Alphabetic</option>
-                         </select>
-                     </div>
-                </div>
-                <div id="project-list-area" class="project-grid"> <!-- Initially grid -->
-                    <!-- Header Row for List View (initially hidden) -->
-                    <div class="project-list-header" style="display: none;">
-                        <div class="header-col title-col">Title</div>
-                        <div class="header-col sources-col">Sources</div>
-                        <div class="header-col modified-col">Last Modified</div>
-                        <div class="header-col actions-col"></div> <!-- Placeholder for actions alignment -->
-                    </div>
-
-                    <div id="home-placeholder" class="placeholder-box" style="grid-column: 1 / -1; margin-top: 40px; text-align: center;">
-                        <i class="fas fa-book-open" style="font-size: 3rem; margin-bottom: 16px;"></i>
-                        <p>Your projects will appear here.<br>Click 'Create new' to get started.</p>
-                    </div>
-                    <!-- Hidden Project Card Template -->
-                    <template id="project-card-template">
-                        <div class="project-card">
-                            <div class="card-header">
-                                <div class="card-icon"><i class="fas fa-book"></i></div>
-                                <button class="card-options-btn" title="Options"><i class="fas fa-ellipsis-v"></i></button>
-                                <!-- NEW: Options Menu (hidden) -->
-                                <div class="card-options-menu">
-                                    <button class="card-menu-button rename-card-btn"><i class="fas fa-pencil-alt"></i> Rename</button>
-                                    <button class="card-menu-button delete-card-btn"><i class="fas fa-trash-alt"></i> Delete</button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <h3 class="card-title">Project Title</h3>
-                                <p class="card-meta">Last modified: <span class="card-mod-date">Date</span></p>
-                            </div>
-                            <!-- <div class="card-footer">
-                                <span class="card-shared-icon" title="Shared"><i class="fas fa-users"></i></span>
-                            </div> -->
-                        </div>
-                    </template>
-
-                    <!-- NEW: Hidden Project List Item Template -->
-                     <template id="project-list-item-template">
-                         <div class="project-list-item">
-                             <div class="list-item-col title-col">
-                                 <span class="item-icon"><i class="fas fa-book"></i></span>
-                                 <span class="item-title">Project Title</span>
-                             </div>
-                             <div class="list-item-col sources-col">
-                                 <span class="item-sources">0 Sources</span> <!-- Placeholder -->
-                             </div>
-                             <div class="list-item-col modified-col">
-                                 <span class="item-mod-date">Date</span>
-                             </div>
-                             <div class="list-item-col actions-col">
-                                 <button class="list-options-btn" title="Options"><i class="fas fa-ellipsis-v"></i></button>
-                                 <div class="list-options-menu">
-                                     <button class="list-menu-button rename-list-item-btn"><i class="fas fa-pencil-alt"></i> Rename</button>
-                                     <button class="list-menu-button delete-list-item-btn"><i class="fas fa-trash-alt"></i> Delete</button>
-                                 </div>
-                                 <!-- Inline rename controls (added dynamically by JS) -->
-                             </div>
-                         </div>
-                     </template>
-                </div>
-            </div>
-        </main>
-
+    <!-- Home Page -->
+    <div class="mb-6">
+      <h1 class="text-3xl font-semibold">Your Projects</h1>
+      <p class="text-sm text-slate-600">Create a project and start researching.</p>
+    </div>
+    <div class="mb-6">
+      <form id="newProjectForm" class="flex gap-2 items-center">
+        <input id="newProjectId" class="px-3 py-2 rounded-md border border-slate-300" placeholder="project-id" />
+        <button class="px-4 py-2 rounded-md primary-gradient text-white hover:brightness-110">Create & Open</button>
+      </form>
+    </div>
+    <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     {% endif %}
-    {% endblock %}
+  </main>
 
-    <div id="status-message"></div>
+  <!-- Theme Modal -->
+  <div id="themeModal" class="hidden fixed inset-0 z-[60] items-center justify-center">
+    <div class="absolute inset-0 bg-black/40" data-close-theme></div>
+    <div class="relative max-w-md w-full mx-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl shadow-glass p-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
+        <h3 class="font-medium">Appearance</h3>
+        <button data-close-theme class="text-slate-600 hover:text-slate-900 dark:hover:text-white">✕</button>
+      </div>
+      <div class="py-4 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <button data-theme-variant="light-orange" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-gradient-to-r from-lava-300 to-lava-500 text-white">Light • Orange</button>
+          <button data-theme-variant="dark-orange" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-gradient-to-r from-lava-600 to-lava-800 text-white">Dark • Orange</button>
+          <button data-theme-variant="light-blue" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-gradient-to-r from-sky-400 to-blue-600 text-white">Light • Blue</button>
+          <button data-theme-variant="dark-blue" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-gradient-to-r from-sky-700 to-blue-900 text-white">Dark • Blue</button>
+        </div>
+        <div class="pt-2">
+          <label class="text-sm text-slate-600">Chat font size</label>
+          <input id="chatFontSize" type="range" min="12" max="20" step="1" class="w-full" />
+          <div class="text-xs text-slate-500 mt-1">Current: <span id="chatFontSizeVal">14</span>px</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script type="module" src="{{ url_for('static', filename='js/script.js') }}"></script>
-    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-[60] items-center justify-center">
+    <div class="absolute inset-0 bg-black/40" data-close-settings></div>
+    <div class="relative max-w-xl w-full mx-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-xl shadow-glass p-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
+        <h3 class="font-medium">Model & Retrieval Settings</h3>
+        <button data-close-settings class="text-slate-600 hover:text-slate-900 dark:hover:text-white">✕</button>
+      </div>
+      <form id="settingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+        <div>
+          <label class="text-sm text-slate-600">Model</label>
+          <select id="setModel" class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5"></select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">Temperature</label>
+          <input id="setTemp" type="number" step="0.1" min="0" max="2" value="1" class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5" />
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">Max Output Tokens</label>
+          <select id="setMaxTokens" class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5">
+            <option value="1024">1024</option>
+            <option value="2048">2048</option>
+            <option value="4096">4096</option>
+            <option value="8192">8192</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-slate-600">System Instructions</label>
+          <textarea id="setSystem" rows="3" class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5" placeholder="e.g., Be concise, cite sources inline, answer only from context"></textarea>
+        </div>
+        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-slate-600">Google API Key</label>
+            <input id="setGoogleKey" type="password" autocomplete="off" placeholder="AIza..." class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5" />
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">OpenAI API Key</label>
+            <input id="setOpenAIKey" type="password" autocomplete="off" placeholder="sk-..." class="input-accent mt-1 w-full px-3 py-2 rounded-md border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5" />
+          </div>
+        </div>
+        <!-- Removed Top K and Context Budget per request -->
+        <div class="md:col-span-2 flex items-center justify-end gap-2">
+          <button type="button" data-close-settings class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10">Cancel</button>
+          <button type="button" id="btnPinSettings" class="px-3 py-2 rounded-md border border-slate-200 dark:border-white/10">Pin as Note</button>
+          <button type="submit" class="primary-gradient px-3 py-2 rounded-md text-white">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    const $ = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+    const toast = (msg) => { console.log(msg); };
+    // Lock embedding after first successful run
+    // Initialize from localStorage if available; null means unknown and stays disabled until checked
+    const EMBED_LOCK_KEY = (typeof window !== 'undefined' && window.PROJECT_ID) ? ('laira_embed_locked_' + window.PROJECT_ID) : null;
+    try {
+      window._embedLocked = (EMBED_LOCK_KEY && localStorage.getItem(EMBED_LOCK_KEY) === '1') ? true : null;
+    } catch(_) {
+      window._embedLocked = null;
+    }
+
+    const fmtBytes = (bytes) => {
+      if (!bytes && bytes !== 0) return "-";
+      const sizes = ['B','KB','MB','GB','TB'];
+      const i = Math.floor(Math.log(bytes)/Math.log(1024));
+      return `${(bytes/Math.pow(1024,i)).toFixed(1)} ${sizes[i]}`;
+    };
+
+    // HOME
+    async function loadProjects() {
+      const grid = $('#projectsGrid'); if (!grid) return;
+      grid.innerHTML = '<div class="text-slate-500">Loading projects...</div>';
+      try {
+        const res = await fetch('/projects');
+        const data = await res.json();
+        grid.innerHTML = '';
+        (data.projects || []).forEach(p => {
+          const card = document.createElement('a');
+          card.href = `/project/${p.project_id}`;
+          card.className = 'block bg-white dark:bg-slate-900/70 border border-slate-200 dark:border-white/10 rounded-xl p-4 hover:shadow-md transition';
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <div class="font-medium">${p.name || p.project_id}</div>
+              <div class="text-xs text-slate-500">${new Date(p.created_at || Date.now()).toLocaleDateString()}</div>
+            </div>
+             <div class="mt-3 text-sm text-slate-600 dark:text-slate-300">${p.description || ''}</div>
+             <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">${p.file_count || 0} files • ${fmtBytes(p.total_size || 0)}</div>
+          `;
+          grid.appendChild(card);
+        });
+        if (!data.projects || data.projects.length === 0) {
+          grid.innerHTML = '<div class="text-slate-500">No projects yet. Create one above.</div>';
+        }
+      } catch (e) {
+        grid.innerHTML = `<div class="text-red-600">Failed to load projects: ${e}</div>`;
+      }
+    }
+
+    function wireHome() {
+      const form = $('#newProjectForm');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const pid = $('#newProjectId').value.trim();
+          if (!pid) return toast('Enter a project id');
+          window.location.href = `/project/${encodeURIComponent(pid)}`;
+        });
+      }
+      loadProjects();
+    }
+
+    // PROJECT
+    async function loadFiles() {
+      const list = $('#filesList'); if (!list) return;
+      list.innerHTML = '<div class="p-3 text-slate-500">Loading files...</div>';
+      const res = await fetch(`/project/${window.PROJECT_ID}/files`);
+      const data = await res.json();
+      list.innerHTML = '';
+      (data.files || []).forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'flex items-start gap-3 p-3 hover:bg-slate-50';
+        row.innerHTML = `
+          <div class="flex-1">
+            <div class="text-sm font-medium">${f.name}</div>
+            <div class="text-xs text-slate-500">${fmtBytes(f.size)} • ${f.mime_type || f.type}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <a class="text-xs accent-link" target="_blank" href="/project/${window.PROJECT_ID}/files/${f.id}">Open</a>
+            <button class="text-xs text-red-600 hover:underline" data-del-file-id="${f.id}">Delete</button>
+          </div>`;
+        list.appendChild(row);
+      });
+      if (!data.files || data.files.length === 0) {
+        list.innerHTML = '<div class="p-3 text-slate-500">No files yet. Upload above.</div>';
+      }
+
+      // Wire delete
+      list.querySelectorAll('[data-del-file-id]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-del-file-id');
+          await fetch(`/delete_file/${window.PROJECT_ID}/${id}`, { method: 'DELETE' });
+          markCorpusDirty();
+          loadFiles();
+        });
+      });
+
+      // Keep disabled until embed status is known; then lock or enable based on files
+      const hasFiles = (data.files || []).length > 0;
+      if (window._embedLocked === true) {
+        setEmbedDisabled(true);
+      } else if (window._embedLocked === false) {
+        setEmbedDisabled(!hasFiles);
+      } else {
+        // unknown yet -> keep disabled to avoid accidental re-embed
+        setEmbedDisabled(true);
+      }
+    }
+
+    function wireUpload() {
+      const form = $('#uploadForm'); if (!form) return;
+      const chooser = $('#btnChooseFiles');
+      const input = $('#fileInput');
+      const sel = $('#fileSelection');
+      chooser?.addEventListener('click', () => input.click());
+      input?.addEventListener('change', () => {
+        const n = input.files?.length || 0;
+        sel.textContent = n ? `${n} file${n>1?'s':''} selected` : '';
+      });
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const files = input.files;
+        if (!files || files.length === 0) return;
+        const fd = new FormData();
+        for (const f of files) fd.append('files', f);
+        const res = await fetch(`/upload/${window.PROJECT_ID}`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.success) toast(data.error || 'Upload error');
+        input.value = '';
+        sel.textContent = '';
+        markCorpusDirty();
+        loadFiles();
+      });
+    }
+
+    async function initEmbedStatus() {
+      const status = $('#embedStatus'); if (!status) return;
+      try {
+        const r = await fetch(`/project/${window.PROJECT_ID}/info`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const stats = d.statistics || {};
+        let lock = false;
+        try { if (EMBED_LOCK_KEY && localStorage.getItem(EMBED_LOCK_KEY) === '1') lock = true; } catch(_){}
+        if ((stats.embedded_chunks || 0) > 0 || (stats.embedded_files || 0) > 0) lock = true;
+        window._embedLocked = lock;
+        if (lock) {
+          status.textContent = 'Embedded ✓';
+          status.setAttribute('data-last-status','completed');
+          setEmbedDisabled(true);
+          try { if (EMBED_LOCK_KEY) localStorage.setItem(EMBED_LOCK_KEY, '1'); } catch(_){}
+        } else {
+          status.textContent = '';
+          // loadFiles() will set the correct disabled state based on file presence
+        }
+      } catch(_) {}
+    }
+
+    function wireEmbed() {
+      const btn = $('#btnEmbed'); if (!btn) return;
+      const status = $('#embedStatus');
+      btn.addEventListener('click', async () => {
+        if (btn.disabled) return; // respect disabled state
+        status.textContent = 'Starting...';
+        setEmbedDisabled(true);
+        const res = await fetch(`/embed/${window.PROJECT_ID}`, { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) { status.textContent = data.error || 'Failed'; return; }
+        const taskId = data.task_id;
+        status.textContent = 'Processing...';
+        const iv = setInterval(async () => {
+          const r = await fetch(`/embed/status/${taskId}`);
+          if (!r.ok) return;
+          const s = await r.json();
+          status.textContent = `${(s.progress || 0).toFixed(1)}% • ${s.details || s.status}`;
+          if (['completed', 'completed_with_errors', 'failed'].includes(s.status)) {
+            clearInterval(iv);
+            status.setAttribute('data-last-status', s.status);
+            if (s.status === 'completed') {
+              status.textContent = 'Embedded ✓';
+              window._embedLocked = true;
+              try { if (EMBED_LOCK_KEY) localStorage.setItem(EMBED_LOCK_KEY, '1'); } catch(_){}
+              setEmbedDisabled(true);
+            }
+            loadFiles();
+          }
+        }, 1200);
+      });
+    }
+
+    function setEmbedDisabled(flag){
+      const btn=$('#btnEmbed'); if(!btn) return;
+      btn.disabled = !!flag;
+      btn.classList.toggle('btn-disabled', !!flag);
+    }
+    function markCorpusDirty(){
+      const status=$('#embedStatus');
+      // Do not prompt to re-embed or re-enable the button once embedded
+      if(status && !window._embedLocked){
+        status.textContent = '';
+        status.removeAttribute('data-last-status');
+      }
+    }
+
+    async function loadChatHistory() {
+      const wrap = $('#chatHistory'); if (!wrap) return;
+      wrap.innerHTML = '<div class="text-slate-500">Loading chat...</div>';
+      const res = await fetch(`/project/${window.PROJECT_ID}/chat-history`);
+      const data = await res.json();
+      wrap.innerHTML = '';
+      (data.history || []).forEach(m => {
+        const isUser = m.role === 'user';
+        const bubble = document.createElement('div');
+        bubble.className = `max-w-[90%] rounded-lg px-3 py-2 ${isUser ? 'primary-gradient text-white ml-auto' : 'bg-white/80 dark:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100'} `;
+        const html = !isUser ? (window.marked ? window.marked.parse(m.content || '') : (m.content || '')) : (m.content || '')
+        bubble.innerHTML = `<div class="chat-text whitespace-pre-wrap">${html}</div>`;
+        wrap.appendChild(bubble);
+      });
+      // Smooth scroll to bottom after layout
+      requestAnimationFrame(()=>{ wrap.scrollTop = wrap.scrollHeight; requestAnimationFrame(()=>{ wrap.scrollTop = wrap.scrollHeight; }); });
+    }
+
+    function currentSettings() {
+      try { return JSON.parse(localStorage.getItem('laira_settings_'+window.PROJECT_ID) || '{}'); } catch(_) { return {}; }
+    }
+    function saveSettings(s) {
+      localStorage.setItem('laira_settings_'+window.PROJECT_ID, JSON.stringify(s));
+    }
+
+    function applySettingsToUI() {
+      const s = currentSettings();
+      $('#setModel') && ($('#setModel').value = s.model || 'gemini-2.5-flash');
+      $('#setTemp') && ($('#setTemp').value = s.temperature ?? 1);
+      $('#setMaxTokens') && ($('#setMaxTokens').value = s.max_output_tokens ?? 1024);
+      $('#setSystem') && ($('#setSystem').value = s.system_instructions || '');
+      $('#setGoogleKey') && ($('#setGoogleKey').value = s.google_api_key || '');
+      $('#setOpenAIKey') && ($('#setOpenAIKey').value = s.openai_api_key || '');
+    }
+
+    async function loadSettingsFromServer() {
+      if (!window.PROJECT_ID) return;
+      try {
+        const res = await fetch(`/project/${window.PROJECT_ID}/settings`);
+        if (!res.ok) return;
+        const server = await res.json();
+        const s = currentSettings();
+        const merged = {
+          ...s,
+          model: (server.chat_settings && server.chat_settings.model_name) || s.model,
+          temperature: (server.chat_settings && server.chat_settings.temperature) ?? s.temperature,
+          max_output_tokens: (server.chat_settings && server.chat_settings.max_output_tokens) ?? s.max_output_tokens,
+          system_instructions: (server.chat_settings && server.chat_settings.system_instructions) || s.system_instructions,
+          google_api_key: (server.provider_keys && server.provider_keys.google_api_key) || s.google_api_key,
+          openai_api_key: (server.provider_keys && server.provider_keys.openai_api_key) || s.openai_api_key,
+        };
+        saveSettings(merged);
+        applySettingsToUI();
+      } catch(_) {}
+    }
+    async function populateModelOptions() {
+      const select = $('#setModel'); if (!select) return;
+      // Models: restricted to Gemini 2.5 Flash
+      const options = [{ value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }];
+      select.innerHTML = options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+      applySettingsToUI();
+    }
+
+    function openSettings() {
+      applySettingsToUI();
+      $('#settingsModal').classList.remove('hidden');
+      $('#settingsModal').classList.add('flex');
+    }
+    function closeSettings() {
+      $('#settingsModal').classList.add('hidden');
+      $('#settingsModal').classList.remove('flex');
+    }
+
+    async function persistSettingsToServer() {
+      const s = currentSettings();
+      await fetch(`/project/${window.PROJECT_ID}/settings`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_settings: {
+            model_name: s.model,
+            temperature: parseFloat(s.temperature ?? 0.2),
+            max_output_tokens: parseInt(s.max_output_tokens ?? 1024),
+            system_instructions: s.system_instructions || ''
+          },
+          provider_keys: {
+            google_api_key: s.google_api_key || '',
+            openai_api_key: s.openai_api_key || ''
+          }
+        })
+      });
+    }
+
+    function wireSettings() {
+      $('#btnSettings')?.addEventListener('click', openSettings);
+      $$('[data-close-settings]').forEach(el => el.addEventListener('click', closeSettings));
+      $('#settingsForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const s = currentSettings();
+        s.model = $('#setModel').value;
+        s.temperature = parseFloat($('#setTemp').value);
+        // Clamp max tokens to power-of-two steps up to 8192
+        const rawMax = parseInt($('#setMaxTokens').value);
+        const steps = [1024, 2048, 4096, 8192];
+        s.max_output_tokens = steps.reduce((prev, cur) => Math.abs(cur - rawMax) < Math.abs(prev - rawMax) ? cur : prev, steps[0]);
+        s.system_instructions = $('#setSystem').value;
+        s.google_api_key = $('#setGoogleKey').value.trim();
+        s.openai_api_key = $('#setOpenAIKey').value.trim();
+        saveSettings(s);
+        await persistSettingsToServer();
+        // quick health check
+        try {
+          const r = await fetch(`/health/gemini?model=${encodeURIComponent(s.model)}&project_id=${encodeURIComponent(window.PROJECT_ID)}`);
+          const d = await r.json();
+          if (!d.ok) {
+            alert(`Gemini health check failed: ${d.error || 'Unknown error'}`);
+          }
+        } catch(_) {}
+        closeSettings();
+      });
+    }
+
+    function wireChat() {
+      const form = $('#chatForm'); if (!form) return;
+      const input = $('#chatInput');
+      const wrap = $('#chatHistory');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const q = input.value.trim();
+        if (!q) return;
+        // optimistic render
+        const you = document.createElement('div');
+        you.className = 'max-w-[90%] rounded-lg px-3 py-2 primary-gradient text-white ml-auto';
+        you.innerHTML = `<div class="chat-text whitespace-pre-wrap">${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+        wrap.appendChild(you); wrap.scrollTop = wrap.scrollHeight;
+        input.value='';
+        const local = currentSettings();
+        const res = await fetch(`/chat/${window.PROJECT_ID}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, settings: local })
+        });
+        const data = await res.json();
+        const bot = document.createElement('div');
+        bot.className = 'max-w-[90%] rounded-lg px-3 py-2 bg-white/80 dark:bg-white/10 border border-slate-200 dark:border-white/10';
+        bot.innerHTML = `<div class="chat-text">${window.marked ? window.marked.parse(data.response || '') : (data.response || '[no response]')}</div>`;
+        wrap.appendChild(bot); wrap.scrollTop = wrap.scrollHeight;
+        // No extra refresh to avoid flicker; content already rendered via Markdown
+      });
+      $('#btnResetChat')?.addEventListener('click', async () => {
+        await fetch(`/reset-chat/${window.PROJECT_ID}`, { method: 'POST' });
+        loadChatHistory();
+      });
+    }
+
+    async function loadNotes() {
+      const list = $('#notesList'); if (!list) return;
+      const res = await fetch(`/project/${window.PROJECT_ID}/notes`);
+      const data = await res.json();
+      list.innerHTML = '';
+      (data.notes || []).forEach(n => {
+        const card = document.createElement('div');
+        card.className = 'border border-slate-200 dark:border-white/10 rounded-lg p-3 bg-white/80 dark:bg-white/10 text-slate-900 dark:text-slate-100';
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-sm font-medium">${n.title || 'Untitled'}</div>
+            <button class="text-xs text-red-600 hover:underline" data-del-note-id="${n.id}">Delete</button>
+          </div>
+          <div class="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap mt-1">${n.content || ''}</div>`;
+        list.appendChild(card);
+      });
+      if (!data.notes || data.notes.length === 0) list.innerHTML = '<div class="text-slate-500">No notes yet.</div>';
+
+      // Wire delete
+      list.querySelectorAll('[data-del-note-id]')?.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-del-note-id');
+          await fetch(`/project/${window.PROJECT_ID}/notes/${id}`, { method: 'DELETE' });
+          loadNotes();
+        });
+      });
+    }
+
+    function wireNotes() {
+      const form = $('#noteForm'); if (!form) return;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = $('#noteTitle').value.trim();
+        const content = $('#noteContent').value.trim();
+        if (!title && !content) return;
+        await fetch(`/project/${window.PROJECT_ID}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content }) });
+        $('#noteTitle').value = '';
+        $('#noteContent').value = '';
+        loadNotes();
+      });
+    }
+
+    // INIT
+    (async function init() {
+      const pid = window.PROJECT_ID;
+      // Theme persistence (basic dark toggle available on all pages)
+      const theme = localStorage.getItem('laira_theme') || 'light';
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+
+      // Theme menu wiring and palette apply available on all pages
+      const themeApply = (variant) => {
+        // variants: light-orange, dark-orange, light-blue, dark-blue
+        const isDark = variant.includes('dark');
+        const isBlue = variant.includes('blue');
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.classList.toggle('palette-blue', isBlue);
+        document.documentElement.classList.toggle('palette-orange', !isBlue);
+        localStorage.setItem('laira_theme', isDark ? 'dark' : 'light');
+        localStorage.setItem('laira_palette', isBlue ? 'blue' : 'orange');
+        // Update gradient helpers (buttons using .primary-gradient)
+        const primaryButtons = document.querySelectorAll('.primary-gradient');
+        primaryButtons.forEach(() => {}); // gradient now uses CSS vars
+        // Update accent text color
+        const accentEls = document.querySelectorAll('.accent');
+        accentEls.forEach(el => { el.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent-text'); });
+        // Update logo fill
+        const logo = document.getElementById('logoFill');
+        if (logo) logo.setAttribute('fill', `url(#${isBlue ? 'g_blue' : 'g_orange'})`);
+        // Apply chat font size
+        const sz = parseInt(localStorage.getItem('laira_chat_font_size') || '14', 10);
+        document.documentElement.style.setProperty('--chat-font-size', `${sz}px`);
+        const v = document.getElementById('chatFontSizeVal'); if (v) v.textContent = String(sz);
+        const r = document.getElementById('chatFontSize'); if (r) r.value = String(sz);
+      };
+      const savedPalette = localStorage.getItem('laira_palette') || 'orange';
+      const savedTheme = localStorage.getItem('laira_theme') || 'light';
+      document.documentElement.classList.add(savedPalette === 'blue' ? 'palette-blue' : 'palette-orange');
+      themeApply(`${savedTheme}-${savedPalette}`);
+      $('#btnThemeMenu')?.addEventListener('click', () => { $('#themeModal').classList.remove('hidden'); $('#themeModal').classList.add('flex'); });
+      $$('[data-close-theme]').forEach(el => el.addEventListener('click', () => { $('#themeModal').classList.add('hidden'); $('#themeModal').classList.remove('flex'); }));
+      $$('[data-theme-variant]').forEach(btn => btn.addEventListener('click', () => { const v = btn.getAttribute('data-theme-variant'); themeApply(v); $('#themeModal').classList.add('hidden'); $('#themeModal').classList.remove('flex'); }));
+      // Chat font size control
+      $('#chatFontSize')?.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        document.documentElement.style.setProperty('--chat-font-size', `${val}px`);
+        localStorage.setItem('laira_chat_font_size', String(val));
+        const v = document.getElementById('chatFontSizeVal'); if (v) v.textContent = String(val);
+      });
+
+      if (!pid) { wireHome(); return; }
+      $('#projTitle').textContent = pid;
+      wireUpload(); wireEmbed(); wireSettings(); wireChat(); wireNotes();
+      populateModelOptions();
+      loadSettingsFromServer();
+      // Ensure we know embed status before deciding button state
+      await initEmbedStatus();
+      await loadFiles();
+      loadChatHistory(); loadNotes();
+
+      // Google Identity Services integration
+      (async function setupGoogleAuth(){
+        try {
+          const r = await fetch('/auth/google/login');
+          const d = await r.json();
+          if (!d.client_id) return; // leave area empty if not configured
+
+          // If user already signed in, render user info
+          try {
+            const me = await (await fetch('/auth/me')).json();
+            if (me && me.email) {
+              const h = $('#headerUserInfo');
+              if (h) {
+                h.classList.remove('hidden');
+                const img = $('#headerUserAvatar'); if (img && me.picture) img.src = me.picture;
+              }
+              const btnHdr = $('#googleSignInHeader'); if (btnHdr) btnHdr.classList.add('hidden');
+              const chatInfo = $('#userInfo'); if (chatInfo) chatInfo.classList.add('hidden');
+            }
+          } catch(_){ }
+
+          // Render the Google Sign-In button
+          if (window.google && window.google.accounts && window.google.accounts.id) {
+            window.google.accounts.id.initialize({
+              client_id: d.client_id,
+              ux_mode: 'popup',
+              use_fedcm_for_prompting: true,
+              callback: async (resp) => {
+                try {
+                  const vr = await fetch('/auth/google/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+                  const vd = await vr.json();
+                  if (vd && vd.user) {
+                    const h = $('#headerUserInfo');
+                    if (h) {
+                      h.classList.remove('hidden');
+                      const img = $('#headerUserAvatar'); if (img && vd.user.picture) img.src = vd.user.picture;
+                    }
+                    const btn = $('#googleSignInBtn'); if (btn) btn.classList.add('hidden');
+                    const btnHdr = $('#googleSignInHeader'); if (btnHdr) btnHdr.classList.add('hidden');
+                    const chatInfo = $('#userInfo'); if (chatInfo) chatInfo.classList.add('hidden');
+                  }
+                } catch(_) {}
+              }
+            });
+            const targetHdr = document.getElementById('googleSignInHeader');
+            if (targetHdr) {
+              window.google.accounts.id.renderButton(targetHdr, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', logo_alignment: 'left' });
+            } else {
+              const target = document.getElementById('googleSignInBtn');
+              if (target) {
+                window.google.accounts.id.renderButton(target, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', logo_alignment: 'left' });
+              }
+            }
+          }
+
+          // Logout handler
+          const doLogout = async () => {
+            await fetch('/auth/logout', { method: 'POST' });
+            const ui = $('#userInfo'); if (ui) ui.classList.add('hidden');
+            const uiH = $('#headerUserInfo'); if (uiH) uiH.classList.add('hidden');
+            const btn = $('#googleSignInBtn'); if (btn) btn.classList.remove('hidden');
+            const btnHdr = $('#googleSignInHeader'); if (btnHdr) btnHdr.classList.remove('hidden');
+          };
+          $('#btnLogout')?.addEventListener('click', doLogout);
+          $('#btnLogoutHeader')?.addEventListener('click', doLogout);
+        } catch(_){ }
+      })();
+      // Pin settings as note
+      $('#btnPinSettings')?.addEventListener('click', async () => {
+        const title = `Model Settings — ${$('#setModel')?.value || ''}`;
+        const content = [
+          `temperature: ${$('#setTemp')?.value || ''}`,
+          `max_output_tokens: ${$('#setMaxTokens')?.value || ''}`,
+          `system_instructions:\n${$('#setSystem')?.value || ''}`,
+        ].join('\n');
+        await fetch(`/project/${window.PROJECT_ID}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, content }) });
+        loadNotes();
+      });
+      // Auto-scroll on content changes (MutationObserver to reduce flicker)
+      (function(){
+        const wrap = document.getElementById('chatHistory'); if (!wrap) return;
+        const obs = new MutationObserver(()=>{ wrap.scrollTop = wrap.scrollHeight; });
+        obs.observe(wrap, { childList: true, subtree: false });
+      })();
+
+      // Resizable panes on desktop
+      (function(){
+        const grid = document.getElementById('layoutGrid');
+        const g1 = document.getElementById('gutter1');
+        const g2 = document.getElementById('gutter2');
+        if (!grid || !g1 || !g2) return;
+        const key = 'laira_layout_cols_' + (window.PROJECT_ID||'home');
+        const limits = { minS: 240, minC: 420, minN: 220 };
+        function apply(w1,w2,w3){ grid.style.setProperty('--col1', w1+'px'); grid.style.setProperty('--col2', w2+'px'); grid.style.setProperty('--col3', w3+'px'); localStorage.setItem(key, JSON.stringify([w1,w2,w3])); }
+        function current(){
+          let v = localStorage.getItem(key); if (v) { try { const [a,b,c]=JSON.parse(v); return [a,b,c]; } catch(_){} }
+          // Defaults based on container width
+          const W = grid.getBoundingClientRect().width; const gap = 16; const s = Math.max(limits.minS, Math.round(W*0.22)); const n = Math.max(limits.minN, Math.round(W*0.20)); const c = Math.max(limits.minC, W - s - n - 2*gap); return [s,c,n];
+        }
+        let [w1,w2,w3] = current(); apply(w1,w2,w3);
+        function drag(startEvent, which){
+          startEvent.preventDefault();
+          const startX = startEvent.clientX;
+          const start = [w1,w2,w3];
+          function onMove(e){
+            const dx = e.clientX - startX; const W = grid.getBoundingClientRect().width; const gap = 16;
+            if (which===1){
+              w1 = Math.max(limits.minS, Math.min(W - w3 - limits.minC - 2*gap, start[0] + dx));
+              w2 = Math.max(limits.minC, W - w1 - w3 - 2*gap);
+            } else {
+              w3 = Math.max(limits.minN, Math.min(W - w1 - limits.minC - 2*gap, start[2] - dx));
+              w2 = Math.max(limits.minC, W - w1 - w3 - 2*gap);
+            }
+            apply(w1,w2,w3);
+          }
+          function onUp(){ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }
+          window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+        }
+        g1.addEventListener('mousedown', (e)=>drag(e,1));
+        g2.addEventListener('mousedown', (e)=>drag(e,2));
+        window.addEventListener('resize', ()=>{ const W = grid.getBoundingClientRect().width; const gap = 16; w1 = Math.max(limits.minS, Math.min(W-2*gap-limits.minC-limits.minN, w1)); w3 = Math.max(limits.minN, Math.min(W-2*gap-limits.minC-w1, w3)); w2 = Math.max(limits.minC, W - w1 - w3 - 2*gap); apply(w1,w2,w3); });
+      })();
+    })();
+  </script>
 </body>
-</html> 
+</html>
+
+

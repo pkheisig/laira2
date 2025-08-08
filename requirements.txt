@@ -1,26 +1,31 @@
 python-dotenv
-google-cloud-aiplatform>=1.38.1  # Check for a recent version supporting Gemini and Gecko
-google-generativeai>=0.5.0 # For Gemini API access
-protobuf>=3.20.0  # Required for Vertex AI and format conversion
-chromadb>=0.4.24 # Or a recent stable version
-customtkinter>=5.2.0 # For the GUI
-langchain>=0.1.0 # For potential use in document loading/chunking
-langchain-community>=0.0.20 # ADDED: Contains document loaders etc.
-langchain-google-vertexai>=0.1.0 # Specific Langchain integration
-# Add specific document loaders if needed, e.g.:
-# pypdf2
-pypdf>=3.0.0 # Added for PDF document loading
-pdfplumber>=0.10.3  # For enhanced PDF text extraction
-python-docx>=0.8.11  # For DOCX extraction
-Pillow>=10.0.0  # For image processing
-PyMuPDF>=1.25.0  # For better PDF image extraction
-Flask
-Flask-Limiter
-pydantic
-tokenizers
-fastapi
-uvicorn
-backoff>=2.2.1  # For retry logic with exponential backoff
-# Add OpenAI Python SDK for chat fallback
-openai>=0.27.0
+Flask>=3.0.0
+
+# Google Gemini (Generative AI)
+google-generativeai>=0.5.0
+
+# Vertex AI (used by TextExtractor image analysis pathways)
+google-cloud-aiplatform>=1.38.1
+vertex-ai>=1.66.0 ; python_version>="3.10"
+protobuf>=3.20.0
+
+# Vector store and embeddings
+chromadb>=0.4.24
+tokenizers>=0.15.0
+backoff>=2.2.1
+
+# Document processing
+pypdf>=3.0.0
+pdfplumber>=0.10.3
+python-docx>=0.8.11
+Pillow>=10.0.0
+PyMuPDF>=1.25.0
+
+# LangChain core types used in code
+langchain>=0.1.0
+
+# Optional fallback provider
+openai>=1.0.0
+
+# Dev / tests
 pytest>=7.1.0
