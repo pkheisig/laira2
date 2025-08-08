@@ -25,6 +25,7 @@ from src.routes.upload_routes import upload_bp
 from src.routes.chat_routes import chat_bp
 from src.routes.embed_routes import embed_bp
 from src.routes.settings_routes import settings_bp
+from src.routes.auth_routes import auth_bp
 import src.routes.chat_extra_routes  # Load extra chat routes before blueprint registration
 
 # Configuration (Keep necessary app config)
@@ -56,6 +57,7 @@ def create_app():
     app.register_blueprint(chat_bp)
     app.register_blueprint(embed_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(auth_bp)
 
     # Load persisted embedding tasks for all projects
     upload_root = app.config['UPLOAD_FOLDER']
